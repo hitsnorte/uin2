@@ -27,6 +27,7 @@ export default function MenusPage() {
     menu_name4: "",
     menu_name5: "",
     outlet_id: "",
+    has_submenus: true,
   });
 
   // ---------------- IMAGE STATE ----------------
@@ -72,6 +73,7 @@ export default function MenusPage() {
       menu_name4: "",
       menu_name5: "",
       outlet_id: "",
+      has_submenus: true,
     });
 
     setImageFile(null);
@@ -93,6 +95,7 @@ export default function MenusPage() {
       menu_name4: sub.menu_name4 || "",
       menu_name5: sub.menu_name5 || "",
       outlet_id: sub.outlet_id || "",
+      has_submenus: sub.has_submenus ?? true,
     });
 
     setImageFile(null);
@@ -140,7 +143,8 @@ export default function MenusPage() {
   function handleChange(e) {
     setForm({
       ...form,
-      [e.target.name]: e.target.value,
+      [e.target.name]:
+        e.target.type === "checkbox" ? e.target.checked : e.target.value,
     });
   }
 
@@ -192,6 +196,7 @@ export default function MenusPage() {
         menu_name4: form.menu_name4,
         menu_name5: form.menu_name5,
         outlet_id: outletId,
+        has_submenus: form.has_submenus,
         menu_card_background: imageUrl,
       };
 
@@ -403,6 +408,17 @@ export default function MenusPage() {
                 É necessário criar um outlet antes de guardar um menu.
               </p>
             )}
+
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="has_submenus"
+                checked={form.has_submenus}
+                onChange={handleChange}
+                className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500"
+              />
+              Permite submenus
+            </label>
 
             {languages.map((lang) => {
               const field = `menu_name${lang.safe_order}`;

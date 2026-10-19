@@ -41,6 +41,10 @@ export async function PUT(req, context) {
       menu_card_background: body.menu_card_background || null,
     };
 
+    if (typeof body.has_submenus === "boolean") {
+      data.has_submenus = body.has_submenus;
+    }
+
     if (body.visible !== undefined) {
       data.visible = body.visible;
     }

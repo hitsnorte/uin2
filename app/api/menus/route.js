@@ -47,6 +47,8 @@ export async function POST(req) {
         menu_name5: body.menu_name5 || null,
         outlet_id: outletId,
         visible: true,
+        has_submenus:
+          typeof body.has_submenus === "boolean" ? body.has_submenus : true,
         menu_card_background: body.menu_card_background || null,
       },
     });

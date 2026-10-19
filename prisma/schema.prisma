@@ -273,6 +273,7 @@ model Menus {
   visible              Boolean?   @default(true)
   menu_icon            String?    @db.VarChar(255)
   menu_card_background String?    @db.VarChar(255)
+  has_submenus         Boolean?   @default(true)
   Outlets              Outlets?   @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "Menus_ibfk_1")
   Submenus             Submenus[]
 

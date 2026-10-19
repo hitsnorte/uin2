@@ -212,6 +212,8 @@ export default function SubmenusPage() {
     })
   );
 
+  const menusWithSubmenus = menus.filter((menu) => menu.has_submenus === true);
+
   function getMenuName(menu) {
     return menu[`menu_name${languages[0]?.lang_order || 1}`] || menu.menu_name1 || `Menu ${menu.menu_id}`;
   }
@@ -347,7 +349,7 @@ export default function SubmenusPage() {
               className="h-10 border rounded-lg px-3"
             >
               <option value="">Sem menu associado</option>
-              {menus.map((menu) => (
+              {menusWithSubmenus.map((menu) => (
                 <option key={menu.menu_id} value={menu.menu_id}>
                   {getMenuName(menu)}
                 </option>

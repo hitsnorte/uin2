@@ -13,6 +13,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { name: "Areas", path: "/backend/areas" },
     { name: "Outlets", path: "/backend/outlets" },
     { name: "Menus", path: "/backend/menus" },
+    { name: "Submenus", path: "/backend/submenus" },
     { name: "Personalização", path: "/backend/personalize" },
     { name: "Grupos de itens", path: "/backend/productGroups" },
     { name: "Famílias de itens", path: "/backend/productFamilies" },
