@@ -26,8 +26,7 @@ export default function MenusPage() {
     menu_name3: "",
     menu_name4: "",
     menu_name5: "",
-    menu_type: 1,
-    category_id: "",
+    outlet_id: "",
   });
 
   // ---------------- IMAGE STATE ----------------
@@ -72,7 +71,6 @@ export default function MenusPage() {
       menu_name3: "",
       menu_name4: "",
       menu_name5: "",
-      menu_type: 1,
       outlet_id: "",
     });
 
@@ -94,7 +92,6 @@ export default function MenusPage() {
       menu_name3: sub.menu_name3 || "",
       menu_name4: sub.menu_name4 || "",
       menu_name5: sub.menu_name5 || "",
-      menu_type: sub.menu_type || 1,
       outlet_id: sub.outlet_id || "",
     });
 
@@ -172,6 +169,13 @@ export default function MenusPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    const outletId = Number(form.outlet_id);
+    if (!Number.isInteger(outletId) || outletId <= 0) {
+      alert("É obrigatório selecionar um outlet.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -182,28 +186,29 @@ export default function MenusPage() {
       }
 
       const payload = {
-        ...form,
-        category_id: Number(form.category_id),
-        subcategory_type: Number(form.subcategory_type),
-        subcategory_card_background: imageUrl,
+        menu_name1: form.menu_name1,
+        menu_name2: form.menu_name2,
+        menu_name3: form.menu_name3,
+        menu_name4: form.menu_name4,
+        menu_name5: form.menu_name5,
+        outlet_id: outletId,
+        menu_card_background: imageUrl,
       };
 
-      if (!editingId) {
-        await fetch("/api/menus", {
-          method: "POST",
+      const response = await fetch(
+        editingId ? `/api/menus/${editingId}` : "/api/menus",
+        {
+          method: editingId ? "PUT" : "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
-        });
-      } else {
-        await fetch(`/api/menus/${editingId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao guardar menu.");
       }
 
       setShowModal(false);
@@ -215,7 +220,7 @@ export default function MenusPage() {
       fetchData();
     } catch (err) {
       console.error(err);
-      alert("Erro ao guardar subcategoria");
+      alert(err.message || "Erro ao guardar menu");
     } finally {
       setIsSaving(false);
     }
@@ -234,7 +239,7 @@ export default function MenusPage() {
       await fetchData();
     } catch (err) {
       console.error(err);
-      alert("Erro ao eliminar subcategoria");
+      alert("Erro ao eliminar menu");
     } finally {
       setDeletingId(null);
     }
@@ -255,15 +260,7 @@ export default function MenusPage() {
   function getOutletName(id) {
     const cat = outlets.find((c) => c.outlet_id === id);
 
-    return cat?.outlet_name || "—";
-  }
-
-  function getTypeLabel(type) {
-    if (type === 1) return "Info";
-    if (type === 2) return "Reservation";
-    if (type === 3) return "Order";
-
-    return "-";
+    return cat?.outlet_name1 || "—";
   }
 
   return (
@@ -309,7 +306,6 @@ export default function MenusPage() {
               ))}
 
               <th className="p-4">Outlet</th>
-              <th className="p-4">Tipo</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -334,10 +330,6 @@ export default function MenusPage() {
 
                 <td className="p-4">
                   {getOutletName(sub.outlet_id)}
-                </td>
-
-                <td className="p-4">
-                  {getTypeLabel(sub.menu_type)}
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">
@@ -401,21 +393,16 @@ export default function MenusPage() {
                   key={o.outlet_id}
                   value={o.outlet_id}
                 >
-                  {o.outlet_name}
+                  {o.outlet_name1}
                 </option>
               ))}
             </select>
 
-            <select
-              name="menu_type"
-              value={form.menu_type}
-              onChange={handleChange}
-              className="h-10 border rounded-lg px-2"
-            >
-              <option value={1}>Info</option>
-              {/* <option value={2}>Reservation</option> */}
-              {/* <option value={3}>Order</option> */}
-            </select>
+            {outlets.length === 0 && (
+              <p className="text-sm text-red-600">
+                É necessário criar um outlet antes de guardar um menu.
+              </p>
+            )}
 
             {languages.map((lang) => {
               const field = `menu_name${lang.safe_order}`;
@@ -517,8 +504,8 @@ export default function MenusPage() {
 
               <button
                 type="submit"
-                disabled={isSaving}
-                className={`px-4 py-2 rounded-lg ${isSaving ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
+                disabled={isSaving || outlets.length === 0}
+                className={`px-4 py-2 rounded-lg ${isSaving || outlets.length === 0 ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
               >
                 {isSaving ? "Guardando..." : "Guardar"}
               </button>

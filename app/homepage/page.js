@@ -15,6 +15,8 @@ import { useTranslations } from "@/app/hooks/useTranslations";
 export default function Homepage() {
   const [areas, setAreas] = useState([]);
   const [outlets, setOutlets] = useState([]);
+  const [menus, setMenus] = useState([]);
+  const [submenus, setSubmenus] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [personalize, setPersonalize] = useState(null);
   const [selectedLang, setSelectedLang] = useState(1);
@@ -22,6 +24,8 @@ export default function Homepage() {
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [openArea, setOpenArea] = useState(null);
   const [selectedArea, setSelectedArea] = useState(null);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
+  const [selectedMenu, setSelectedMenu] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [showSignUpModal, setShowSignUpModal] = useState(false);
@@ -123,6 +127,9 @@ export default function Homepage() {
       setCurrentUser(null);
       setMenuOpen(false);
       setOpenArea(null);
+      setSelectedArea(null);
+      setSelectedOutlet(null);
+      setSelectedMenu(null);
       window.location.href = "/homepage";
 
     } catch (error) {
@@ -132,8 +139,15 @@ export default function Homepage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [areasData, outletsData, langs, pers] = await Promise.all(
-        ["/api/areas", "/api/outlets", "/api/languages", "/api/personalize"].map(
+      const [areasData, outletsData, menusData, submenusData, langs, pers] = await Promise.all(
+        [
+          "/api/areas",
+          "/api/outlets",
+          "/api/menus",
+          "/api/submenus",
+          "/api/languages",
+          "/api/personalize",
+        ].map(
           async (url) => {
             const response = await fetch(url);
             if (!response.ok) {
@@ -147,13 +161,17 @@ export default function Homepage() {
       if (
         !Array.isArray(areasData) ||
         !Array.isArray(outletsData) ||
+        !Array.isArray(menusData) ||
+        !Array.isArray(submenusData) ||
         !Array.isArray(langs)
       ) {
-        throw new TypeError("As APIs de áreas, outlets e idiomas devem devolver listas.");
+        throw new TypeError("As APIs de áreas, outlets, menus, submenus e idiomas devem devolver listas.");
       }
 
       setAreas(areasData.filter((area) => area.visible));
       setOutlets(outletsData.filter((outlet) => outlet.visible));
+      setMenus(menusData.filter((menu) => menu.visible));
+      setSubmenus(submenusData.filter((submenu) => submenu.visible));
       setLanguages(langs.sort((a, b) => a.lang_order - b.lang_order));
       setPersonalize(pers || null);
     } catch (error) {
@@ -344,7 +362,15 @@ export default function Homepage() {
   }
 
   function getAreaOutlets(areaId) {
-    return outlets.filter((outlet) => outlet.area_id === areaId);
+    return outlets.filter((outlet) => Number(outlet.area_id) === Number(areaId));
+  }
+
+  function getOutletMenus(outletId) {
+    return menus.filter((menu) => Number(menu.outlet_id) === Number(outletId));
+  }
+
+  function getMenuSubmenus(menuId) {
+    return submenus.filter((submenu) => Number(submenu.menu_id) === Number(menuId));
   }
 
   const theme = {
@@ -748,13 +774,28 @@ export default function Homepage() {
       </div>
     );
   }
-  console.log(areas);
-
   if (theme.mode === 2) {
-    const data = selectedArea
-      ? getAreaOutlets(selectedArea)
-      : areas;
-
+    const data = selectedMenu !== null
+      ? getMenuSubmenus(selectedMenu)
+      : selectedOutlet !== null
+        ? getOutletMenus(selectedOutlet)
+        : selectedArea !== null
+          ? getAreaOutlets(selectedArea)
+          : areas;
+    const cardNamePrefix = selectedMenu !== null
+      ? "submenu_name"
+      : selectedOutlet !== null
+        ? "menu_name"
+        : selectedArea !== null
+          ? "outlet_name"
+          : "area_name";
+    const cardBackgroundField = selectedMenu !== null
+      ? "submenu_card_background"
+      : selectedOutlet !== null
+        ? "menu_card_background"
+        : selectedArea !== null
+          ? "outlet_card_background"
+          : "area_card_background";
     const rows = chunk(data, [2, 3]);
 
     return (
@@ -763,9 +804,17 @@ export default function Homepage() {
         style={{ background: theme.background, color: theme.text }}
       >
 
-        {selectedArea && (
+        {selectedArea !== null && (
           <button
-            onClick={() => setSelectedArea(null)}
+            onClick={() => {
+              if (selectedMenu !== null) {
+                setSelectedMenu(null);
+              } else if (selectedOutlet !== null) {
+                setSelectedOutlet(null);
+              } else {
+                setSelectedArea(null);
+              }
+            }}
             className="absolute top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg"
             style={{ background: theme.primary, color: theme.text }}
           >
@@ -857,6 +906,11 @@ export default function Homepage() {
             )}
           </div>
           <div className="flex flex-col gap-4">
+            {data.length === 0 && (
+              <p className="py-12 text-center opacity-70">
+                Não existem itens associados.
+              </p>
+            )}
             {rows.map((row, rowIndex) => (
               <div
                 key={rowIndex}
@@ -868,21 +922,28 @@ export default function Homepage() {
               >
                 {row.map((item, i) => (
                   <div
-                    key={i}
+                    key={
+                      item.area_id ??
+                      item.outlet_id ??
+                      item.menu_id ??
+                      item.submenu_id ??
+                      i
+                    }
                     onClick={() => {
-                      if (!selectedArea) {
-                        setSelectedArea(item.area_id);
+                      if (selectedMenu !== null) return;
+                      if (selectedOutlet !== null) {
+                        setSelectedMenu(item.menu_id);
+                      } else if (selectedArea !== null) {
+                        setSelectedOutlet(item.outlet_id);
                       } else {
-                        window.location.href = `/homepage/outlet/${item.outlet_id}`;
+                        setSelectedArea(item.area_id);
                       }
                     }}
-                    className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer transition hover:scale-[1.02] overflow-hidden"
+                    className={`w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold ${selectedMenu === null ? "cursor-pointer hover:scale-[1.02]" : "cursor-default"} transition overflow-hidden`}
                     style={{
                       background: getCardColor(rowIndex * 10 + i),
                       backgroundImage: `url("${encodeURI(
-                        selectedArea
-                          ? item.outlet_card_background
-                          : item.area_card_background
+                        item[cardBackgroundField] || ""
                       )
                         }")`,
                       backgroundSize: "cover",
@@ -897,10 +958,7 @@ export default function Homepage() {
                         fontSize: `${theme.cardTextSize}px`
                       }}
                     >
-                      {getName(
-                        item,
-                        selectedArea ? "outlet_name" : "area_name"
-                      )}
+                      {getName(item, cardNamePrefix)}
                     </div>
                   </div>
                 ))}
@@ -957,6 +1015,20 @@ export default function Homepage() {
   }
 
   if (theme.mode === 1) {
+    const selectedOutletData = outlets.find(
+      (outlet) => Number(outlet.outlet_id) === Number(selectedOutlet)
+    );
+    const levelItems = selectedMenu !== null
+      ? getMenuSubmenus(selectedMenu)
+      : selectedOutlet !== null
+        ? getOutletMenus(selectedOutlet)
+        : [];
+    const levelNamePrefix = selectedMenu !== null ? "submenu_name" : "menu_name";
+    const levelBackgroundField = selectedMenu !== null
+      ? "submenu_card_background"
+      : "menu_card_background";
+    const levelRows = chunk(levelItems, [2, 3]);
+
     return (
       <div
         className="min-h-screen flex flex-col"
@@ -979,9 +1051,14 @@ export default function Homepage() {
           setMenuOpen={setMenuOpen}
           openArea={openArea}
           setOpenArea={setOpenArea}
-          onHomeClick={() => window.location.href = "/homepage"}
+          onHomeClick={() => {
+            setSelectedOutlet(null);
+            setSelectedMenu(null);
+            window.location.href = "/homepage";
+          }}
           onOutletClick={(outletId) => {
-            window.location.href = `/homepage/outlet/${outletId}`;
+            setSelectedOutlet(outletId);
+            setSelectedMenu(null);
           }}
           languages={languages}
           selectedLang={selectedLang}
@@ -1006,6 +1083,84 @@ export default function Homepage() {
         />
 
         <div className="flex-1 p-6">
+          {selectedOutlet !== null && (
+            <div className="mx-auto max-w-6xl">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedMenu !== null) {
+                    setSelectedMenu(null);
+                    return;
+                  }
+
+                  setSelectedOutlet(null);
+                  setMenuOpen(true);
+                  setOpenArea(selectedOutletData?.area_id ?? null);
+                }}
+                className="mb-6 px-4 py-2 rounded-lg shadow-lg"
+                style={{ background: theme.primary, color: "#fff" }}
+              >
+                ← {t.geral.buttons.back}
+              </button>
+
+              {levelItems.length === 0 ? (
+                <p className="py-12 text-center opacity-70" style={{ color: theme.text }}>
+                  Não existem itens associados.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {levelRows.map((row, rowIndex) => (
+                    <div
+                      key={rowIndex}
+                      className={
+                        row.length === 2
+                          ? "grid gap-4 grid-cols-1 sm:grid-cols-2"
+                          : "grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+                      }
+                    >
+                      {row.map((item, itemIndex) => (
+                        <button
+                          key={
+                            item.menu_id ??
+                            item.submenu_id ??
+                            itemIndex
+                          }
+                          type="button"
+                          onClick={() => {
+                            if (selectedMenu === null) {
+                              setSelectedMenu(item.menu_id);
+                            }
+                          }}
+                          className={`w-full min-h-[30vh] sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold transition overflow-hidden ${
+                            selectedMenu === null
+                              ? "cursor-pointer hover:scale-[1.02]"
+                              : "cursor-default"
+                          }`}
+                          style={{
+                            background: getCardColor(rowIndex * 10 + itemIndex),
+                            backgroundImage: `url("${encodeURI(item[levelBackgroundField] || "")}")`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                            fontFamily: theme.cardTextFont,
+                          }}
+                        >
+                          <span
+                            className="px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
+                            style={{
+                              color: theme.cardTextColor,
+                              fontSize: `${theme.cardTextSize}px`,
+                            }}
+                          >
+                            {getName(item, levelNamePrefix)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {!checkingSession && !isLoggedIn && renderLanguageSwitcher()}

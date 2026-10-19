@@ -1,8 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
-
-// UPDATE
 export async function PUT(req, context) {
   try {
     const params = await context.params;
@@ -13,31 +10,58 @@ export async function PUT(req, context) {
     }
 
     const body = await req.json();
+    const outletId = Number(body.outlet_id);
 
-    const updated = await prisma.Menus.update({
+    if (!Number.isInteger(outletId) || outletId <= 0) {
+      return Response.json(
+        { error: "É obrigatório selecionar um outlet válido." },
+        { status: 400 }
+      );
+    }
+
+    const outlet = await prisma.outlets.findUnique({
+      where: { outlet_id: outletId },
+      select: { outlet_id: true },
+    });
+
+    if (!outlet) {
+      return Response.json(
+        { error: "O outlet selecionado não existe." },
+        { status: 400 }
+      );
+    }
+
+    const data = {
+      menu_name1: body.menu_name1 || null,
+      menu_name2: body.menu_name2 || null,
+      menu_name3: body.menu_name3 || null,
+      menu_name4: body.menu_name4 || null,
+      menu_name5: body.menu_name5 || null,
+      outlet_id: outletId,
+      menu_card_background: body.menu_card_background || null,
+    };
+
+    if (body.visible !== undefined) {
+      data.visible = body.visible;
+    }
+
+    const updated = await prisma.menus.update({
       where: {
         menu_id: id,
       },
-      data: {
-        menu_name1: body.menu_name1 || null,
-        menu_name2: body.menu_name2 || null,
-        menu_name3: body.menu_name3 || null,
-        menu_name4: body.menu_name4 || null,
-        menu_name5: body.menu_name5 || null,
-        menu_type: Number(body.menu_type) || 1,
-        outlet_id: Number(body.outlet_id),
-        visible: body.visible ?? true,
-        menu_card_background: body.menu_card_background || null,
-      },
+      data,
     });
 
     return Response.json(updated);
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error(error);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Erro ao atualizar menu." },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE
 export async function DELETE(_, context) {
   try {
     const params = await context.params;
@@ -47,7 +71,7 @@ export async function DELETE(_, context) {
       return Response.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    await prisma.Menus.delete({
+    await prisma.menus.delete({
       where: {
         menu_id: id,
       },
@@ -55,6 +79,10 @@ export async function DELETE(_, context) {
 
     return Response.json({ ok: true });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error(error);
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Erro ao eliminar menu." },
+      { status: 500 }
+    );
   }
 }

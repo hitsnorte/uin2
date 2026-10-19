@@ -360,7 +360,7 @@ export default function OutletsPage() {
                   key={a.area_id}
                   value={a.area_id}
                 >
-                  {a.area_name}
+                  {a.area_name1}
                 </option>
               ))}
             </select>

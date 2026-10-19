@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // UPDATE
 export async function PUT(req, context) {
@@ -14,7 +12,7 @@ export async function PUT(req, context) {
 
     const body = await req.json();
 
-    const updated = await prisma.Outlets.update({
+    const updated = await prisma.outlets.update({
       where: {
         outlet_id: id,
       },
@@ -47,7 +45,7 @@ export async function DELETE(_, context) {
       return Response.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    await prisma.Outlets.delete({
+    await prisma.outlets.delete({
       where: {
         outlet_id: id,
       },

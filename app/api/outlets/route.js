@@ -1,11 +1,9 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 // GET ALL
 export async function GET() {
   try {
-    const data = await prisma.Outlets.findMany({
+    const data = await prisma.outlets.findMany({
       orderBy: {
         outlet_id: "asc",
       },
@@ -40,7 +38,7 @@ export async function POST(req) {
       );
     }
 
-    const created = await prisma.Outlets.create({
+    const created = await prisma.outlets.create({
       data: {
         outlet_name1: outlet_name1 || null,
         outlet_name2: outlet_name2 || null,
