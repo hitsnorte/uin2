@@ -1,0 +1,56 @@
+{
+    "geral": {
+        "buttons": {
+            "cancel": "Cancel",
+            "back": "Back",
+            "saving": "Saving...",
+            "continue": "Continue",
+            "checking": "Checking...",
+            "send": "Send",
+            "sending": "Sending..."
+        },
+        "signValues": {
+            "signIn": "Sign in",
+            "signUp": "Create account",
+            "email": "Email",
+            "password": "Password",
+            "confirmPassword": "Confirm password",
+            "acceptTerms": "I have read and accept the",
+            "dataProtectionRegulation": "Data Protection Regulation",
+            "messages": {
+                "error": {
+                    "accessCodeSent": "Could not send the code.",
+                    "serverCommunication": "Server communication error.",
+                    "emailRequired": "Please enter your email.",
+                    "passwordRequired": "Please enter your password.",
+                    "passwordTooShort": "The password must be at least 8 characters long.",
+                    "passwordsDoNotMatch": "The passwords do not match.",
+                    "passwordSetFailed": "Could not set the password.",
+                    "invalidCredentials": "Incorrect email or password.",
+                    "invalidAccessCode": "Invalid access code."
+                },
+                "success": {
+                    "accessCodeSent": "Code sent successfully.",
+                    "signInSuccess": "Signed in successfully!",
+                    "validAccessCode": "Valid access code.",
+                    "passwordSet": "Password set successfully."
+                }
+            }
+        }
+    },
+    "signIn": {
+        "signIn": "Sign in",
+        "description": "Choose an option to sign in.",
+        "signInInfo": "Sign in with email and password",
+        "signInCode": "Sign in with access code",
+        "signInPathInfo": "Enter your email and password to continue.",
+        "accessCode": "Access code",
+        "accessCodeInfo": "Enter the access code you received by email.",
+        "setPassword": "Set password",
+        "setPasswordInfo": "Set your password to continue."
+    },
+    "signUp": {
+        "signUp": "Create account",
+        "description": "Enter your email to continue."
+    }
+}

@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    container_name: uinv
+    ports:
+      - "3006:3000"
+    environment:
+      NEXTAUTH_URL: "https://pedregal.mypms.pt"
+      DATABASE_URL: "mysql://micro:Nextjs.2024@192.168.145.20:3306/uin"
+      NEXTAUTH_SECRET: "df85ddde82c355ec214024a1eb3643253d1ff2ce686509d0f3c521f786ad48b8"
+      JWT_SECRET: "dikr3FJ9I2HG408GF24JPI3V9837049023yhroigsfa8s7af09auijhf3208fhi2o"
+      SECRET_KEY: "q4vf9p8n4907895f7m8d24m75c2q947m2398c574q9586c490q756c98q4m705imtugcfecvrhym04capwz3e2ewqaefwegfiuoamv4ros2"
+      NEXT_PUBLIC_SECRET_KEY: "fec3ee9596164653946d66b88a7b1d7041b1b73cb6337686743c984a173e92da"
+      MINIO_ENDPOINT: "https://uin-multimedia.mypms.pt"
+      MINIO_ACCESS_KEY: "admin"
+      MINIO_SECRET_KEY: "N13dah1ts#2026!"
+      MINIO_BUCKET: "uin-pedregal"
+    restart: always

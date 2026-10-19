@@ -1,0 +1,344 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AccessPointGroups {
+  access_point_group_id   Int     @id @default(autoincrement())
+  access_point_group_name String? @db.VarChar(150)
+}
+
+model AccessPointSubGroups {
+  access_point_sub_group_id Int     @id @default(autoincrement())
+  access_point_group_id     Int?
+  access_point_group_name   String? @db.VarChar(150)
+}
+
+model AccessPoints {
+  access_point_id           Int      @id @default(autoincrement())
+  access_point_sub_group_id Int?
+  access_point_name         String?  @db.VarChar(150)
+  products                  Json?
+  product_cat               Json?
+  activities                Json?
+  active                    Boolean? @default(true)
+}
+
+model Activities {
+  activity_id    Int     @id @default(autoincrement())
+  activity_name1 String? @db.VarChar(150)
+  activity_name2 String? @db.VarChar(150)
+  activity_name3 String? @db.VarChar(150)
+  activity_name4 String? @db.VarChar(150)
+  activity_name5 String? @db.VarChar(150)
+}
+
+model ActivityGroups {
+  activity_group_id   Int     @id @default(autoincrement())
+  activity_group_name String? @db.VarChar(150)
+}
+
+model Categories {
+  category_id              Int      @id @default(autoincrement())
+  category_name1           String?  @db.VarChar(150)
+  category_name2           String?  @db.VarChar(150)
+  category_name3           String?  @db.VarChar(150)
+  category_name4           String?  @db.VarChar(150)
+  category_name5           String?  @db.VarChar(150)
+  visible                  Boolean? @default(true)
+  category_icon            String?  @db.VarChar(255)
+  category_card_background String?  @db.VarChar(255)
+}
+
+model EmailSettings {
+  id             Int    @id @default(autoincrement()) @db.UnsignedInt
+  reply_email    String @db.VarChar(255)
+  reply_password String @db.VarChar(255)
+  sending_server String @db.VarChar(255)
+  sending_port   Int    @db.UnsignedInt
+}
+
+model EmailTemplates {
+  email_template_id Int       @id @default(autoincrement())
+  email_title1      String?   @db.VarChar(255)
+  email_title2      String?   @db.VarChar(255)
+  email_title3      String?   @db.VarChar(255)
+  email_title4      String?   @db.VarChar(255)
+  email_title5      String?   @db.VarChar(255)
+  email_body1       String?   @db.Text
+  email_body2       String?   @db.Text
+  email_body3       String?   @db.Text
+  email_body4       String?   @db.Text
+  email_body5       String?   @db.Text
+  created_at        DateTime? @default(now()) @db.Timestamp(0)
+  created_by        Int?
+  updated_at        DateTime? @default(now()) @db.Timestamp(0)
+  updated_by        Int?
+}
+
+model FormTemplates {
+  form_id                Int   @id @default(autoincrement())
+  form_type              Int?  @db.TinyInt
+  fields1                Json?
+  fields2                Json?
+  fields3                Json?
+  fields4                Json?
+  fields5                Json?
+  available_activities   Json?
+  available_products     Json?
+  available_product_cats Json?
+}
+
+model GroupUsers {
+  user_group_id Int   @id @default(autoincrement())
+  user_id       Int
+  perms         Json?
+}
+
+model InfoSubcategory {
+  info_subcategory_id Int       @id @default(autoincrement())
+  subcategory_id      Int?
+  content             Json?
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  created_by          Int?
+  updated_at          DateTime? @default(now()) @db.Timestamp(0)
+  updated_by          Int?
+}
+
+model Languages {
+  lang_id         Int     @id @default(autoincrement())
+  lang_name       String  @db.VarChar(50)
+  lang_order      Int?
+  lang_identifier String? @db.VarChar(2)
+}
+
+model OrderSubcategory {
+  res_subcategory_id Int       @id @default(autoincrement())
+  subcategory_id     Int?
+  form_id            Int?
+  email_template     Int?
+  send_by_wpp        Boolean?  @default(false)
+  created_at         DateTime? @default(now()) @db.Timestamp(0)
+  created_by         Int?
+  updated_at         DateTime? @default(now()) @db.Timestamp(0)
+  updated_by         Int?
+}
+
+model Orders {
+  order_id      Int       @id @default(autoincrement())
+  order_details Json?
+  created_at    DateTime? @default(now()) @db.Timestamp(0)
+  created_by    String?   @db.VarChar(100)
+  taken_at      DateTime? @db.Timestamp(0)
+  taken_by      String?   @db.VarChar(100)
+  status        Int?      @db.TinyInt
+}
+
+model Personalize {
+  personalize_id   Int     @id @default(autoincrement())
+  page_model       Int?
+  primary_color    String? @db.VarChar(50)
+  secondary_color  String? @db.VarChar(50)
+  background_color String? @db.VarChar(50)
+  foreground_color String? @db.VarChar(50)
+  card_colors      Json?
+  background_image String? @db.VarChar(255)
+  logo             String? @db.VarChar(255)
+  bar_text         String? @db.VarChar(255)
+  bar_text_details String? @db.VarChar(255)
+  icon_color       String? @db.VarChar(50)
+  card_text_font   String? @db.VarChar(45)
+  card_text_color  String? @db.VarChar(45)
+  card_text_size   String? @db.VarChar(45)
+}
+
+model Preparation {
+  preparation_id       Int     @id @default(autoincrement())
+  preparation_group_id Int?
+  preparation_name1    String? @db.VarChar(150)
+  preparation_name2    String? @db.VarChar(150)
+  preparation_name3    String? @db.VarChar(150)
+  preparation_name4    String? @db.VarChar(150)
+  preparation_name5    String? @db.VarChar(150)
+}
+
+model PreparationGroups {
+  preparation_group_id   Int     @id @default(autoincrement())
+  preparation_group_name String? @db.VarChar(150)
+}
+
+model ProductCats {
+  product_cat_id    Int     @id @default(autoincrement())
+  product_family_id Int?
+  category_name1    String? @db.VarChar(150)
+  category_name2    String? @db.VarChar(150)
+  category_name3    String? @db.VarChar(150)
+  category_name4    String? @db.VarChar(150)
+  category_name5    String? @db.VarChar(150)
+}
+
+model ProductFamily {
+  product_family_id   Int     @id @default(autoincrement())
+  product_group_id    Int?
+  product_family_name String? @db.VarChar(150)
+}
+
+model ProductGroup {
+  product_group_id   Int     @id @default(autoincrement())
+  product_group_name String? @db.VarChar(150)
+}
+
+model Products {
+  product_id           Int     @id @default(autoincrement())
+  product_cat_id       Int?
+  product_name1        String? @db.VarChar(150)
+  product_name2        String? @db.VarChar(150)
+  product_name3        String? @db.VarChar(150)
+  product_name4        String? @db.VarChar(150)
+  product_name5        String? @db.VarChar(150)
+  preparation          Json?
+  product_description1 String? @db.VarChar(150)
+  product_description2 String? @db.VarChar(150)
+  product_description3 String? @db.VarChar(150)
+  product_description4 String? @db.VarChar(150)
+  product_description5 String? @db.VarChar(150)
+  product_image_url    String? @db.VarChar(150)
+  product_price        String? @db.VarChar(45)
+  product_type         String? @db.VarChar(45)
+  reservation          String? @db.VarChar(1)
+  checkin              String? @db.VarChar(1)
+  room                 String? @db.VarChar(1)
+  instantOrder         String? @db.VarChar(1)
+  sendStaychat         String? @db.VarChar(1)
+  staychatWebhook      String? @db.VarChar(255)
+  visiblePrice         String? @db.VarChar(1)
+  allowReservations    String? @db.VarChar(1)
+  scheduleID           String? @db.VarChar(1)
+}
+
+model ResSubcategory {
+  res_subcategory_id Int       @id @default(autoincrement())
+  subcategory_id     Int?
+  form_id            Int?
+  email_template     Int?
+  send_by_wpp        Boolean?  @default(false)
+  created_at         DateTime? @default(now()) @db.Timestamp(0)
+  created_by         Int?
+  updated_at         DateTime? @default(now()) @db.Timestamp(0)
+  updated_by         Int?
+}
+
+model Reservations {
+  reservation_id      Int       @id @default(autoincrement())
+  reservation_details Json?
+  created_at          DateTime? @default(now()) @db.Timestamp(0)
+  created_by          String?   @db.VarChar(100)
+  taken_at            DateTime? @db.Timestamp(0)
+  taken_by            String?   @db.VarChar(100)
+  status              Int?      @db.TinyInt
+}
+
+model Subcategories {
+  subcategory_id              Int      @id @default(autoincrement())
+  subcategory_name1           String?  @db.VarChar(150)
+  subcategory_name2           String?  @db.VarChar(150)
+  subcategory_name3           String?  @db.VarChar(150)
+  subcategory_name4           String?  @db.VarChar(150)
+  subcategory_name5           String?  @db.VarChar(150)
+  subcategory_type            Int?
+  visible                     Boolean? @default(true)
+  category_id                 Int
+  subcategory_card_background String?  @db.VarChar(255)
+}
+
+model Users {
+  user_id    Int       @id @default(autoincrement())
+  username   String    @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+  last_login DateTime? @db.DateTime(0)
+  password   String    @db.VarChar(255)
+  type       Int?      @db.TinyInt
+}
+
+model Users_FO {
+  id                     Int       @id @default(autoincrement()) @db.UnsignedInt
+  email                  String?   @unique(map: "uq_users_email") @db.VarChar(255)
+  access_code            String?   @unique(map: "uq_users_access_code") @db.VarChar(255)
+  created_at             DateTime  @default(now()) @db.Timestamp(0)
+  updated_at             DateTime  @default(now()) @db.Timestamp(0)
+  access_code_expiration DateTime? @db.DateTime(0)
+  password               String?   @db.VarChar(255)
+  session_token          String?   @unique(map: "session_token") @db.VarChar(255)
+  session_expires_at     DateTime? @db.DateTime(0)
+  account_duration       Int       @default(172800)
+}
+
+model chatbotsStay {
+  propertyID         Int      @id
+  active             Boolean  @default(false)
+  provider           String?  @db.Text
+  hijiffyToken       String?  @db.Text
+  hijiffyCampaign    String?  @db.Text
+  whatsappToken      String?  @db.Text
+  whatsappPhoneID    String?  @db.Text
+  preCheckinEnabled  Boolean? @default(false)
+  checkinEnabled     Boolean? @default(false)
+  checkinDelay       Int?     @default(0)
+  preCheckoutEnabled Boolean? @default(false)
+  preCheckoutDelay   Int?     @default(0)
+  checkoutEnabled    Boolean? @default(false)
+  checkoutDelay      Int?     @default(0)
+}
+
+model myStayDetails {
+  recordID               Int       @id @default(autoincrement())
+  requestDate            DateTime  @db.DateTime(0)
+  propertyTag            String    @db.VarChar(255)
+  protelMpeHotel         String    @db.VarChar(255)
+  protelReservationID    String    @db.VarChar(255)
+  protelRoomID           String    @db.VarChar(255)
+  protelGuestID          String    @db.VarChar(255)
+  protelGuestEmail       String?   @db.VarChar(255)
+  protelGuestPhone       String?   @db.VarChar(32)
+  protelValidFrom        DateTime  @db.DateTime(0)
+  protelValidUntil       DateTime  @db.DateTime(0)
+  control                String    @db.VarChar(1)
+  reponseToken           String?   @db.VarChar(255)
+  reponseURL             String?   @db.VarChar(255)
+  protelBookingID        String    @db.VarChar(255)
+  protelRoomTypeID       String    @db.VarChar(255)
+  responseDate           DateTime? @db.DateTime(0)
+  vatNo                  String?   @db.VarChar(255)
+  child                  Int       @default(0)
+  adult                  Int       @default(1)
+  country                String    @db.VarChar(255)
+  city                   String    @db.VarChar(255)
+  postalCode             String?   @db.VarChar(20)
+  nationality            String    @db.VarChar(255)
+  birthCountry           String    @db.VarChar(255)
+  birthDate              DateTime  @db.DateTime(0)
+  identificationDocument String    @db.VarChar(255)
+  documentIssueDate      DateTime  @db.DateTime(0)
+  documentExpirationDate DateTime  @db.DateTime(0)
+  Resend                 String    @db.VarChar(1)
+  ResendDate             DateTime  @db.DateTime(0)
+  protelSalutation       String?   @db.VarChar(50)
+  protelGuestFirstName   String?   @db.VarChar(255)
+  protelGuestLastName    String?   @db.VarChar(255)
+  protelCountryID        Int?
+  protelAddress          String?   @db.VarChar(255)
+  protelGuestMobilePhone String?   @db.VarChar(32)
+  protelDocType          String?   @db.VarChar(100)
+  protelProfileType      String?   @db.VarChar(100)
+  preCheckinControl      String    @default("N") @db.VarChar(1)
+  checkinControl         String    @default("N") @db.VarChar(1)
+}
+
+model schedules {
+  schedule_id   Int  @id @default(autoincrement())
+  schedule_json Json
+}

@@ -1,0 +1,56 @@
+{
+    "geral": {
+        "buttons": {
+            "cancel": "Cancelar",
+            "back": "Voltar",
+            "saving": "A guardar...",
+            "continue": "Continuar",
+            "checking": "A verificar...",
+            "send": "Enviar",
+            "sending": "A enviar..."
+        },
+        "signValues": {
+            "signIn": "Iniciar sessão",
+            "signUp": "Criar conta",
+            "email": "Email",
+            "password": "Password",
+            "confirmPassword": "Confirmar password",
+            "acceptTerms": "Li e aceito o",
+            "dataProtectionRegulation": "Regulamento de Proteção de Dados",
+            "messages": {
+                "error": {
+                    "accessCodeSent": "Não foi possível enviar o código.",
+                    "serverCommunication": "Erro de comunicação com o servidor.",
+                    "emailRequired": "Introduza o seu email.",
+                    "passwordRequired": "Introduza a sua password.",
+                    "passwordTooShort": "A password deve ter pelo menos 8 caracteres.",
+                    "passwordsDoNotMatch": "As passwords não coincidem.",
+                    "passwordSetFailed": "Não foi possível definir a password.",
+                    "invalidCredentials": "Email ou password incorretos.",
+                    "invalidAccessCode": "Código de acesso inválido."
+                },
+                "success": {
+                    "accessCodeSent": "Código enviado com sucesso.",
+                    "signInSuccess": "Sessão iniciada com sucesso!",
+                    "validAccessCode": "Código de acesso válido.",
+                    "passwordSet": "Password definida com sucesso."
+                }
+            }
+        }
+    },
+    "signIn": {
+        "signIn": "Iniciar sessão",
+        "description": "Escolha uma opção para iniciar sessão.",
+        "signInInfo": "Iniciar sessão com email e password",
+        "signInCode": "Iniciar sessão com código de acesso",
+        "signInPathInfo": "Introduza o seu email e password para continuar.",
+        "accessCode": "Código de acesso",
+        "accessCodeInfo": "Introduza o código de acesso que recebeu por email.",
+        "setPassword": "Definir password",
+        "setPasswordInfo": "Defina a sua password para continuar."
+    },
+    "signUp": {
+        "signUp": "Criar conta",
+        "description": "Introduza o seu email para continuar."
+    }
+}
