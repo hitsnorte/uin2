@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState([]);
+export default function AreasPage() {
+  const [areas, setAreas] = useState([]);
   const [languages, setLanguages] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -15,11 +15,11 @@ export default function CategoriesPage() {
   const [deletingId, setDeletingId] = useState(null);
 
   const [form, setForm] = useState({
-    category_name1: "",
-    category_name2: "",
-    category_name3: "",
-    category_name4: "",
-    category_name5: "",
+    area_name1: "",
+    area_name2: "",
+    area_name3: "",
+    area_name4: "",
+    area_name5: "",
   });
 
   // ✅ IMAGE STATE (FIXED)
@@ -29,10 +29,10 @@ export default function CategoriesPage() {
 
   // ---------------- FETCH ----------------
 
-  async function fetchCategories() {
-    const res = await fetch("/api/categories");
+  async function fetchAreas() {
+    const res = await fetch("/api/areas");
     const data = await res.json();
-    setCategories(data);
+    setAreas(data);
   }
 
   async function fetchLanguages() {
@@ -44,7 +44,7 @@ export default function CategoriesPage() {
   }
 
   useEffect(() => {
-    fetchCategories();
+    fetchAreas();
     fetchLanguages();
   }, []);
 
@@ -54,11 +54,11 @@ export default function CategoriesPage() {
     setEditingId(null);
 
     setForm({
-      category_name1: "",
-      category_name2: "",
-      category_name3: "",
-      category_name4: "",
-      category_name5: "",
+      area_name1: "",
+      area_name2: "",
+      area_name3: "",
+      area_name4: "",
+      area_name5: "",
     });
 
     setImageFile(null);
@@ -69,19 +69,19 @@ export default function CategoriesPage() {
   }
 
   function openEdit(cat) {
-    setEditingId(cat.category_id);
+    setEditingId(cat.area_id);
 
     setForm({
-      category_name1: cat.category_name1 || "",
-      category_name2: cat.category_name2 || "",
-      category_name3: cat.category_name3 || "",
-      category_name4: cat.category_name4 || "",
-      category_name5: cat.category_name5 || "",
+      area_name1: cat.area_name1 || "",
+      area_name2: cat.area_name2 || "",
+      area_name3: cat.area_name3 || "",
+      area_name4: cat.area_name4 || "",
+      area_name5: cat.area_name5 || "",
     });
 
     setImageFile(null);
-    setImagePreview(cat.category_card_background || null);
-    setExistingImage(cat.category_card_background || null);
+    setImagePreview(cat.area_card_background || null);
+    setExistingImage(cat.area_card_background || null);
 
     setShowModal(true);
   }
@@ -123,12 +123,12 @@ export default function CategoriesPage() {
 
       const payload = {
         ...form,
-        category_card_background: imageUrl,
+        area_card_background: imageUrl,
       };
 
       const url = editingId
-        ? `/api/categories/${editingId}`
-        : "/api/categories";
+        ? `/api/areas/${editingId}`
+        : "/api/areas";
 
       const method = editingId ? "PUT" : "POST";
 
@@ -142,7 +142,7 @@ export default function CategoriesPage() {
 
       if (!response.ok) throw new Error("Save failed");
 
-      await fetchCategories();
+      await fetchAreas();
 
       setShowModal(false);
       setImageFile(null);
@@ -150,7 +150,7 @@ export default function CategoriesPage() {
       setExistingImage(null);
     } catch (err) {
       console.error(err);
-      alert("Error saving category");
+      alert("Error saving area");
     } finally {
       setIsSaving(false);
     }
@@ -160,23 +160,23 @@ export default function CategoriesPage() {
     try {
       setDeletingId(id);
 
-      const response = await fetch(`/api/categories/${id}`, {
+      const response = await fetch(`/api/areas/${id}`, {
         method: "DELETE",
       });
 
       if (!response.ok) throw new Error("Delete failed");
 
-      await fetchCategories();
+      await fetchAreas();
     } catch (err) {
       console.error(err);
-      alert("Error deleting category");
+      alert("Error deleting area");
     } finally {
       setDeletingId(null);
     }
   }
 
   async function toggleVisible(cat) {
-    await fetch(`/api/categories/${cat.category_id}`, {
+    await fetch(`/api/areas/${cat.area_id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -186,14 +186,14 @@ export default function CategoriesPage() {
       }),
     });
 
-    fetchCategories();
+    fetchAreas();
   }
 
   // ---------------- FILTER ----------------
 
-  const filtered = categories.filter((c) =>
+  const filtered = areas.filter((c) =>
     languages.some((lang) => {
-      const field = `category_name${lang.lang_order}`;
+      const field = `area_name${lang.lang_order}`;
       return (c[field] || "")
         .toLowerCase()
         .includes(search.toLowerCase());
@@ -204,7 +204,7 @@ export default function CategoriesPage() {
     <div className="min-h-screen bg-gray-50">
 
       <div className="-mx-6 -mt-6">
-        <Topbar title="Categorias" />
+        <Topbar title="Areas" />
       </div>
 
       {/* HEADER */}
@@ -213,7 +213,7 @@ export default function CategoriesPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Pesquisar categorias..."
+          placeholder="Pesquisar areas..."
           className="h-11 w-80 border rounded-lg px-3"
         />
 
@@ -221,7 +221,7 @@ export default function CategoriesPage() {
           onClick={openCreate}
           className="h-11 px-5 bg-red-500 text-white rounded-lg"
         >
-          + Criar Categoria
+          + Criar Area
         </button>
 
       </div>
@@ -246,11 +246,11 @@ export default function CategoriesPage() {
 
           <tbody>
             {filtered.map((cat) => (
-              <tr key={cat.category_id} className="border-t">
-                <td className="p-4">{cat.category_id}</td>
+              <tr key={cat.area_id} className="border-t">
+                <td className="p-4">{cat.area_id}</td>
 
                 {languages.map((lang) => {
-                  const field = `category_name${lang.lang_order}`;
+                  const field = `area_name${lang.lang_order}`;
                   return (
                     <td key={lang.lang_id} className="p-4">
                       {cat[field]}
@@ -276,11 +276,11 @@ export default function CategoriesPage() {
                   </button>
 
                   <button
-                    onClick={() => remove(cat.category_id)}
-                    disabled={deletingId === cat.category_id}
-                    className={`px-3 py-1 rounded-lg ${deletingId === cat.category_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
+                    onClick={() => remove(cat.area_id)}
+                    disabled={deletingId === cat.area_id}
+                    className={`px-3 py-1 rounded-lg ${deletingId === cat.area_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
                   >
-                    {deletingId === cat.category_id ? "Eliminar" : "Eliminar"}
+                    {deletingId === cat.area_id ? "Eliminar" : "Eliminar"}
                   </button>
                 </td>
               </tr>
@@ -303,7 +303,7 @@ export default function CategoriesPage() {
             </h2>
 
             {languages.map((lang) => {
-              const field = `category_name${lang.lang_order}`;
+              const field = `area_name${lang.lang_order}`;
 
               return (
                 <input

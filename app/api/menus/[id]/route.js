@@ -14,20 +14,20 @@ export async function PUT(req, context) {
 
     const body = await req.json();
 
-    const updated = await prisma.subcategories.update({
+    const updated = await prisma.Menus.update({
       where: {
-        subcategory_id: id,
+        menu_id: id,
       },
       data: {
-        subcategory_name1: body.subcategory_name1 || null,
-        subcategory_name2: body.subcategory_name2 || null,
-        subcategory_name3: body.subcategory_name3 || null,
-        subcategory_name4: body.subcategory_name4 || null,
-        subcategory_name5: body.subcategory_name5 || null,
-        subcategory_type: Number(body.subcategory_type) || 1,
-        category_id: Number(body.category_id),
+        menu_name1: body.menu_name1 || null,
+        menu_name2: body.menu_name2 || null,
+        menu_name3: body.menu_name3 || null,
+        menu_name4: body.menu_name4 || null,
+        menu_name5: body.menu_name5 || null,
+        menu_type: Number(body.menu_type) || 1,
+        outlet_id: Number(body.outlet_id),
         visible: body.visible ?? true,
-        subcategory_card_background: body.subcategory_card_background || null,
+        menu_card_background: body.menu_card_background || null,
       },
     });
 
@@ -47,9 +47,9 @@ export async function DELETE(_, context) {
       return Response.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    await prisma.subcategories.delete({
+    await prisma.Menus.delete({
       where: {
-        subcategory_id: id,
+        menu_id: id,
       },
     });
 

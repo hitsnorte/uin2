@@ -58,18 +58,18 @@ function enrichProductNodes(value, productsById) {
   );
 }
 
-export default function SubcategoryPage() {
+export default function OutletPage() {
   const params = useParams();
   const router = useRouter();
 
   const [content, setContent] = useState(null);
   const [personalize, setPersonalize] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [outlets, setOutlets] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [selectedLang, setSelectedLang] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openCategory, setOpenCategory] = useState(null);
+  const [openArea, setOpenArea] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [orderQuantity, setOrderQuantity] = useState(1);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -89,19 +89,23 @@ export default function SubcategoryPage() {
 
   async function fetchData() {
     try {
-      const [info, pers, cats, subs, langs] = await Promise.all([
+      const [info, pers, areasData, outletsData, langs] = await Promise.all([
         fetch(`/api/info-subcategory/${params.id}`).then((r) =>
           r.json()
         ),
 
         fetch("/api/personalize").then((r) => r.json()),
 
-        fetch("/api/categories").then((r) => r.json()),
+        fetch("/api/areas").then((r) => r.json()),
 
-        fetch("/api/subcategories").then((r) => r.json()),
+        fetch("/api/outlets").then((r) => r.json()),
 
         fetch("/api/languages").then((r) => r.json()),
       ]);
+
+      if (!Array.isArray(areasData) || !Array.isArray(outletsData)) {
+        throw new TypeError("As APIs de áreas e outlets devem devolver listas.");
+      }
 
       const productIds = collectProductIds(info?.content);
       const products = await Promise.all(
@@ -119,8 +123,8 @@ export default function SubcategoryPage() {
       );
       setContent(enrichProductNodes(info?.content || null, productsById));
       setPersonalize(pers || null);
-      setCategories(cats || []);
-      setSubcategories(subs || []);
+      setAreas(areasData.filter((area) => area.visible));
+      setOutlets(outletsData.filter((outlet) => outlet.visible));
       setLanguages(langs || []);
 
       const savedLang = Number(localStorage.getItem("lang") || 1);
@@ -172,7 +176,7 @@ export default function SubcategoryPage() {
       setIsLoggedIn(false);
       setCurrentUser(null);
       setMenuOpen(false);
-      setOpenCategory(null);
+      setOpenArea(null);
       window.location.href = "/homepage";
     } catch (error) {
       console.error("Erro ao terminar sessão:", error);
@@ -198,10 +202,10 @@ export default function SubcategoryPage() {
     );
   }
 
-  // ---------------- ACTIVE SUB ----------------
+  // ---------------- ACTIVE OUTLET ----------------
 
-  const activeSub = subcategories.find(
-    (s) => Number(s.subcategory_id) === Number(params.id)
+  const activeOutlet = outlets.find(
+    (outlet) => Number(outlet.outlet_id) === Number(params.id)
   );
   const quantity = Math.max(1, Number.parseInt(orderQuantity, 10) || 1);
 
@@ -305,17 +309,17 @@ export default function SubcategoryPage() {
       }}
     >
       <FrontendHeader
-        title={getName(activeSub, "subcategory_name") || "Subcategoria"}
-        categories={categories}
-        subcategories={subcategories}
+        title={getName(activeOutlet, "outlet_name") || "Local"}
+        areas={areas}
+        outlets={outlets}
         personalize={personalize}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
-        openCategory={openCategory}
-        setOpenCategory={setOpenCategory}
+        openArea={openArea}
+        setOpenArea={setOpenArea}
         onHomeClick={() => router.push("/homepage")}
-        onSubcategoryClick={(subcategoryId) => {
-          window.location.href = `/homepage/subcategory/${subcategoryId}`;
+        onOutletClick={(outletId) => {
+          window.location.href = `/homepage/outlet/${outletId}`;
         }}
         languages={languages}
         selectedLang={selectedLang}

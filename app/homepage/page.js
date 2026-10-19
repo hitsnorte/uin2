@@ -13,16 +13,15 @@ import FrontendHeader from "@/components/layout/frontend/header";
 import { useTranslations } from "@/app/hooks/useTranslations";
 
 export default function Homepage() {
-  const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [outlets, setOutlets] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [personalize, setPersonalize] = useState(null);
   const [selectedLang, setSelectedLang] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [openCategory, setOpenCategory] = useState(null);
-  const [activeSub, setActiveSub] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [openArea, setOpenArea] = useState(null);
+  const [selectedArea, setSelectedArea] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [showSignUpModal, setShowSignUpModal] = useState(false);
@@ -123,7 +122,7 @@ export default function Homepage() {
       setIsLoggedIn(false);
       setCurrentUser(null);
       setMenuOpen(false);
-      setOpenCategory(null);
+      setOpenArea(null);
       window.location.href = "/homepage";
 
     } catch (error) {
@@ -132,18 +131,36 @@ export default function Homepage() {
   }
   async function fetchData() {
     setLoading(true);
-    const [cats, subs, langs, pers] = await Promise.all([
-      fetch("/api/categories").then((r) => r.json()),
-      fetch("/api/subcategories").then((r) => r.json()),
-      fetch("/api/languages").then((r) => r.json()),
-      fetch("/api/personalize").then((r) => r.json()),
-    ]);
+    try {
+      const [areasData, outletsData, langs, pers] = await Promise.all(
+        ["/api/areas", "/api/outlets", "/api/languages", "/api/personalize"].map(
+          async (url) => {
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Falha ao carregar ${url}: ${response.status}`);
+            }
+            return response.json();
+          }
+        )
+      );
 
-    setCategories(cats.filter((c) => c.visible));
-    setSubcategories(subs.filter((s) => s.visible));
-    setLanguages(langs.sort((a, b) => a.lang_order - b.lang_order));
-    setPersonalize(pers || null);
-    setLoading(false);
+      if (
+        !Array.isArray(areasData) ||
+        !Array.isArray(outletsData) ||
+        !Array.isArray(langs)
+      ) {
+        throw new TypeError("As APIs de áreas, outlets e idiomas devem devolver listas.");
+      }
+
+      setAreas(areasData.filter((area) => area.visible));
+      setOutlets(outletsData.filter((outlet) => outlet.visible));
+      setLanguages(langs.sort((a, b) => a.lang_order - b.lang_order));
+      setPersonalize(pers || null);
+    } catch (error) {
+      console.error("Erro ao carregar os dados da homepage:", error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function changeLang(order) {
@@ -326,8 +343,8 @@ export default function Homepage() {
     return obj?.[`${prefix}${selectedLang}`] || "—";
   }
 
-  function getSubs(catId) {
-    return subcategories.filter((s) => s.category_id === catId);
+  function getAreaOutlets(areaId) {
+    return outlets.filter((outlet) => outlet.area_id === areaId);
   }
 
   const theme = {
@@ -731,12 +748,12 @@ export default function Homepage() {
       </div>
     );
   }
-  console.log(categories);
+  console.log(areas);
 
   if (theme.mode === 2) {
-    const data = selectedCategory
-      ? subcategories.filter((s) => s.category_id === selectedCategory)
-      : categories;
+    const data = selectedArea
+      ? getAreaOutlets(selectedArea)
+      : areas;
 
     const rows = chunk(data, [2, 3]);
 
@@ -746,9 +763,9 @@ export default function Homepage() {
         style={{ background: theme.background, color: theme.text }}
       >
 
-        {selectedCategory && (
+        {selectedArea && (
           <button
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => setSelectedArea(null)}
             className="absolute top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg"
             style={{ background: theme.primary, color: theme.text }}
           >
@@ -853,19 +870,19 @@ export default function Homepage() {
                   <div
                     key={i}
                     onClick={() => {
-                      if (!selectedCategory) {
-                        setSelectedCategory(item.category_id);
+                      if (!selectedArea) {
+                        setSelectedArea(item.area_id);
                       } else {
-                        window.location.href = `/homepage/subcategory/${item.subcategory_id}`;
+                        window.location.href = `/homepage/outlet/${item.outlet_id}`;
                       }
                     }}
                     className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer transition hover:scale-[1.02] overflow-hidden"
                     style={{
                       background: getCardColor(rowIndex * 10 + i),
                       backgroundImage: `url("${encodeURI(
-                        selectedCategory
-                          ? item.subcategory_card_background
-                          : item.category_card_background
+                        selectedArea
+                          ? item.outlet_card_background
+                          : item.area_card_background
                       )
                         }")`,
                       backgroundSize: "cover",
@@ -882,7 +899,7 @@ export default function Homepage() {
                     >
                       {getName(
                         item,
-                        selectedCategory ? "subcategory_name" : "category_name"
+                        selectedArea ? "outlet_name" : "area_name"
                       )}
                     </div>
                   </div>
@@ -955,16 +972,16 @@ export default function Homepage() {
       >
         <FrontendHeader
           title={personalize?.bar_text || "Bem vindo!"}
-          categories={categories}
-          subcategories={subcategories}
+          areas={areas}
+          outlets={outlets}
           personalize={personalize}
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
-          openCategory={openCategory}
-          setOpenCategory={setOpenCategory}
+          openArea={openArea}
+          setOpenArea={setOpenArea}
           onHomeClick={() => window.location.href = "/homepage"}
-          onSubcategoryClick={(subcategoryId) => {
-            window.location.href = `/homepage/subcategory/${subcategoryId}`;
+          onOutletClick={(outletId) => {
+            window.location.href = `/homepage/outlet/${outletId}`;
           }}
           languages={languages}
           selectedLang={selectedLang}
@@ -989,25 +1006,6 @@ export default function Homepage() {
         />
 
         <div className="flex-1 p-6">
-          {activeSub && (
-            <div
-              className="max-w-3xl mx-auto p-6 rounded-2xl shadow-xl backdrop-blur-xl border"
-              style={{
-                background: personalize?.background_color
-                  ? `${personalize.background_color}ee`
-                  : "rgba(255,255,255,0.9)",
-                color: personalize?.foreground_color || "#111",
-              }}
-            >
-              <h1 className="text-xl font-semibold mb-4">
-                {getName(activeSub, "subcategory_name")}
-              </h1>
-
-              <div className="opacity-80">
-                Conteúdo da subcategoria aparecerá aqui...
-              </div>
-            </div>
-          )}
         </div>
 
         {!checkingSession && !isLoggedIn && renderLanguageSwitcher()}

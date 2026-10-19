@@ -10,8 +10,9 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const menu = [
     { name: "Dashboard", path: "/backend" },
     { name: "Linguagens", path: "/backend/languages" },
-    { name: "Categorias", path: "/backend/categories" },
-    { name: "Subcategorias", path: "/backend/subcategories" },
+    { name: "Areas", path: "/backend/areas" },
+    { name: "Outlets", path: "/backend/outlets" },
+    { name: "Menus", path: "/backend/menus" },
     { name: "Personalização", path: "/backend/personalize" },
     { name: "Grupos de itens", path: "/backend/productGroups" },
     { name: "Famílias de itens", path: "/backend/productFamilies" },

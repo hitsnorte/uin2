@@ -10,12 +10,9 @@ datasource db {
 model AccessPointGroups {
   access_point_group_id   Int     @id @default(autoincrement())
   access_point_group_name String? @db.VarChar(150)
-}
-
-model AccessPointSubGroups {
-  access_point_sub_group_id Int     @id @default(autoincrement())
-  access_point_group_id     Int?
-  access_point_group_name   String? @db.VarChar(150)
+  schedule_id             Int?
+  max_capacity            Int?
+  allows_reservations     Boolean @default(false)
 }
 
 model AccessPoints {
@@ -26,32 +23,6 @@ model AccessPoints {
   product_cat               Json?
   activities                Json?
   active                    Boolean? @default(true)
-}
-
-model Activities {
-  activity_id    Int     @id @default(autoincrement())
-  activity_name1 String? @db.VarChar(150)
-  activity_name2 String? @db.VarChar(150)
-  activity_name3 String? @db.VarChar(150)
-  activity_name4 String? @db.VarChar(150)
-  activity_name5 String? @db.VarChar(150)
-}
-
-model ActivityGroups {
-  activity_group_id   Int     @id @default(autoincrement())
-  activity_group_name String? @db.VarChar(150)
-}
-
-model Categories {
-  category_id              Int      @id @default(autoincrement())
-  category_name1           String?  @db.VarChar(150)
-  category_name2           String?  @db.VarChar(150)
-  category_name3           String?  @db.VarChar(150)
-  category_name4           String?  @db.VarChar(150)
-  category_name5           String?  @db.VarChar(150)
-  visible                  Boolean? @default(true)
-  category_icon            String?  @db.VarChar(255)
-  category_card_background String?  @db.VarChar(255)
 }
 
 model EmailSettings {
@@ -99,43 +70,11 @@ model GroupUsers {
   perms         Json?
 }
 
-model InfoSubcategory {
-  info_subcategory_id Int       @id @default(autoincrement())
-  subcategory_id      Int?
-  content             Json?
-  created_at          DateTime? @default(now()) @db.Timestamp(0)
-  created_by          Int?
-  updated_at          DateTime? @default(now()) @db.Timestamp(0)
-  updated_by          Int?
-}
-
 model Languages {
   lang_id         Int     @id @default(autoincrement())
   lang_name       String  @db.VarChar(50)
   lang_order      Int?
   lang_identifier String? @db.VarChar(2)
-}
-
-model OrderSubcategory {
-  res_subcategory_id Int       @id @default(autoincrement())
-  subcategory_id     Int?
-  form_id            Int?
-  email_template     Int?
-  send_by_wpp        Boolean?  @default(false)
-  created_at         DateTime? @default(now()) @db.Timestamp(0)
-  created_by         Int?
-  updated_at         DateTime? @default(now()) @db.Timestamp(0)
-  updated_by         Int?
-}
-
-model Orders {
-  order_id      Int       @id @default(autoincrement())
-  order_details Json?
-  created_at    DateTime? @default(now()) @db.Timestamp(0)
-  created_by    String?   @db.VarChar(100)
-  taken_at      DateTime? @db.Timestamp(0)
-  taken_by      String?   @db.VarChar(100)
-  status        Int?      @db.TinyInt
 }
 
 model Personalize {
@@ -218,41 +157,6 @@ model Products {
   visiblePrice         String? @db.VarChar(1)
   allowReservations    String? @db.VarChar(1)
   scheduleID           String? @db.VarChar(1)
-}
-
-model ResSubcategory {
-  res_subcategory_id Int       @id @default(autoincrement())
-  subcategory_id     Int?
-  form_id            Int?
-  email_template     Int?
-  send_by_wpp        Boolean?  @default(false)
-  created_at         DateTime? @default(now()) @db.Timestamp(0)
-  created_by         Int?
-  updated_at         DateTime? @default(now()) @db.Timestamp(0)
-  updated_by         Int?
-}
-
-model Reservations {
-  reservation_id      Int       @id @default(autoincrement())
-  reservation_details Json?
-  created_at          DateTime? @default(now()) @db.Timestamp(0)
-  created_by          String?   @db.VarChar(100)
-  taken_at            DateTime? @db.Timestamp(0)
-  taken_by            String?   @db.VarChar(100)
-  status              Int?      @db.TinyInt
-}
-
-model Subcategories {
-  subcategory_id              Int      @id @default(autoincrement())
-  subcategory_name1           String?  @db.VarChar(150)
-  subcategory_name2           String?  @db.VarChar(150)
-  subcategory_name3           String?  @db.VarChar(150)
-  subcategory_name4           String?  @db.VarChar(150)
-  subcategory_name5           String?  @db.VarChar(150)
-  subcategory_type            Int?
-  visible                     Boolean? @default(true)
-  category_id                 Int
-  subcategory_card_background String?  @db.VarChar(255)
 }
 
 model Users {
@@ -339,6 +243,74 @@ model myStayDetails {
 }
 
 model schedules {
-  schedule_id   Int  @id @default(autoincrement())
+  schedule_id   Int   @id @default(autoincrement())
   schedule_json Json
+  slotDuration  Int   @default(30)
+  exceptions    Json?
+}
+
+model Areas {
+  area_id              Int       @id @default(autoincrement())
+  area_name1           String?   @db.VarChar(150)
+  area_name2           String?   @db.VarChar(150)
+  area_name3           String?   @db.VarChar(150)
+  area_name4           String?   @db.VarChar(150)
+  area_name5           String?   @db.VarChar(150)
+  visible              Boolean?  @default(true)
+  area_icon            String?   @db.VarChar(255)
+  area_card_background String?   @db.VarChar(255)
+  Outlets              Outlets[]
+}
+
+model Menus {
+  menu_id              Int        @id @default(autoincrement())
+  outlet_id            Int?
+  menu_name1           String?    @db.VarChar(150)
+  menu_name2           String?    @db.VarChar(150)
+  menu_name3           String?    @db.VarChar(150)
+  menu_name4           String?    @db.VarChar(150)
+  menu_name5           String?    @db.VarChar(150)
+  visible              Boolean?   @default(true)
+  menu_icon            String?    @db.VarChar(255)
+  menu_card_background String?    @db.VarChar(255)
+  Outlets              Outlets?   @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "Menus_ibfk_1")
+  Submenus             Submenus[]
+
+  @@index([outlet_id], map: "outlet_id")
+}
+
+model Outlets {
+  outlet_id              Int      @id @default(autoincrement())
+  area_id                Int?
+  outlet_name1           String?  @db.VarChar(150)
+  outlet_name2           String?  @db.VarChar(150)
+  outlet_name3           String?  @db.VarChar(150)
+  outlet_name4           String?  @db.VarChar(150)
+  outlet_name5           String?  @db.VarChar(150)
+  visible                Boolean? @default(true)
+  outlet_icon            String?  @db.VarChar(255)
+  outlet_card_background String?  @db.VarChar(255)
+  reservation            Int?
+  roomservice            Int?
+  order                  Int?
+  Menus                  Menus[]
+  Areas                  Areas?   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
+
+  @@index([area_id], map: "area_id")
+}
+
+model Submenus {
+  submenu_id              Int      @id @default(autoincrement())
+  menu_id                 Int?
+  submenu_name1           String?  @db.VarChar(150)
+  submenu_name2           String?  @db.VarChar(150)
+  submenu_name3           String?  @db.VarChar(150)
+  submenu_name4           String?  @db.VarChar(150)
+  submenu_name5           String?  @db.VarChar(150)
+  visible                 Boolean? @default(true)
+  submenu_icon            String?  @db.VarChar(255)
+  submenu_card_background String?  @db.VarChar(255)
+  Menus                   Menus?   @relation(fields: [menu_id], references: [menu_id], onDelete: NoAction, onUpdate: NoAction, map: "Submenus_ibfk_1")
+
+  @@index([menu_id], map: "menu_id")
 }

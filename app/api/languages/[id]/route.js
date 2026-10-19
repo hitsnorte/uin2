@@ -9,7 +9,7 @@ export async function PUT(req, context) {
 
   const body = await req.json();
 
-  const updated = await prisma.languages.update({
+  const updated = await prisma.Languages.update({
     where: { lang_id: id },
     data: { lang_name: body.lang_name },
   });
@@ -20,7 +20,7 @@ export async function PUT(req, context) {
 export async function DELETE(req, context) {
   const params = await context.params;
 
-  await prisma.languages.delete({
+  await prisma.Languages.delete({
     where: { lang_id: Number(params.id) },
   });
 

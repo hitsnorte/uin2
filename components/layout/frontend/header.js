@@ -8,15 +8,15 @@ import { useTranslations } from "@/app/hooks/useTranslations";
 
 export default function FrontendHeader({
   title,
-  categories = [],
-  subcategories = [],
+  areas = [],
+  outlets = [],
   personalize = {},
   menuOpen,
   setMenuOpen,
-  openCategory,
-  setOpenCategory,
+  openArea,
+  setOpenArea,
   onHomeClick,
-  onSubcategoryClick,
+  onOutletClick,
   languages = [],
   selectedLang,
   onLanguageChange,
@@ -206,34 +206,34 @@ export default function FrontendHeader({
           }}
         >
           <div className="flex flex-col gap-4">
-            {categories.length > 0 && (
+            {areas.length > 0 && (
               <div className="flex flex-col gap-1">
-                {categories.map((cat) => (
-                  <div key={cat.category_id}>
+                {areas.map((area) => (
+                  <div key={area.area_id}>
                     <div
                       onClick={() => {
-                        setOpenCategory(
-                          openCategory === cat.category_id ? null : cat.category_id
+                        setOpenArea(
+                          openArea === area.area_id ? null : area.area_id
                         );
                       }}
                       className="flex justify-between items-center px-3 py-2 cursor-pointer transition hover:bg-black/5 rounded-lg"
                     >
-                      <span className="font-medium text-sm sm:text-base">{getName(cat, "category_name")}</span>
-                      <span className="opacity-70">{openCategory === cat.category_id ? "−" : "+"}</span>
+                      <span className="font-medium text-sm sm:text-base">{getName(area, "area_name")}</span>
+                      <span className="opacity-70">{openArea === area.area_id ? "−" : "+"}</span>
                     </div>
 
                     <div
                       className={`overflow-hidden transition-all duration-300 ${
-                        openCategory === cat.category_id ? "max-h-96" : "max-h-0"
+                        openArea === area.area_id ? "max-h-96" : "max-h-0"
                       }`}
                     >
-                      {subcategories
-                        .filter((s) => s.category_id === cat.category_id)
-                        .map((sub) => (
+                      {outlets
+                        .filter((outlet) => outlet.area_id === area.area_id)
+                        .map((outlet) => (
                           <div
-                            key={sub.subcategory_id}
+                            key={outlet.outlet_id}
                             onClick={() => {
-                              onSubcategoryClick?.(sub.subcategory_id);
+                              onOutletClick?.(outlet.outlet_id);
                               setMenuOpen(false);
                             }}
                             className="px-5 py-2 text-xs sm:text-sm cursor-pointer transition hover:bg-black/5 rounded-lg"
@@ -241,7 +241,7 @@ export default function FrontendHeader({
                               color: personalize?.foreground_color || "#111",
                             }}
                           >
-                            {getName(sub, "subcategory_name")}
+                            {getName(outlet, "outlet_name")}
                           </div>
                         ))}
                     </div>

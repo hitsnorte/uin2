@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Editor from "@/components/editor/page.js";
 import Topbar from "@/components/layout/Topbar";
 
-export default function SubcategoriesPage() {
-  const [subcategories, setSubcategories] = useState([]);
-  const [categories, setCategories] = useState([]);
+export default function OutletsPage() {
+  const [outlets, setOutlets] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [languages, setLanguages] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -17,17 +17,16 @@ export default function SubcategoriesPage() {
   const [deletingId, setDeletingId] = useState(null);
 
   const [showContentModal, setShowContentModal] = useState(false);
-  const [selectedSub, setSelectedSub] = useState(null);
+  const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [editorContent, setEditorContent] = useState(null);
 
   const [form, setForm] = useState({
-    subcategory_name1: "",
-    subcategory_name2: "",
-    subcategory_name3: "",
-    subcategory_name4: "",
-    subcategory_name5: "",
-    subcategory_type: 1,
-    category_id: "",
+    outlet_name1: "",
+    outlet_name2: "",
+    outlet_name3: "",
+    outlet_name4: "",
+    outlet_name5: "",
+    area_id: "",
   });
 
   // ---------------- IMAGE STATE ----------------
@@ -39,9 +38,9 @@ export default function SubcategoriesPage() {
   // ---------------- FETCH ----------------
 
   async function fetchData() {
-    const [subs, cats, langs] = await Promise.all([
-      fetch("/api/subcategories").then((r) => r.json()),
-      fetch("/api/categories").then((r) => r.json()),
+    const [outlets, areas, langs] = await Promise.all([
+      fetch("/api/outlets").then((r) => r.json()),
+      fetch("/api/areas").then((r) => r.json()),
       fetch("/api/languages").then((r) => r.json()),
     ]);
 
@@ -52,8 +51,8 @@ export default function SubcategoriesPage() {
         safe_order: l.lang_order ?? i + 1,
       }));
 
-    setSubcategories(subs);
-    setCategories(cats);
+    setOutlets(outlets);
+    setAreas(areas);
     setLanguages(normalizedLangs);
   }
 
@@ -67,13 +66,12 @@ export default function SubcategoriesPage() {
     setEditingId(null);
 
     setForm({
-      subcategory_name1: "",
-      subcategory_name2: "",
-      subcategory_name3: "",
-      subcategory_name4: "",
-      subcategory_name5: "",
-      subcategory_type: 1,
-      category_id: "",
+      outlet_name1: "",
+      outlet_name2: "",
+      outlet_name3: "",
+      outlet_name4: "",
+      outlet_name5: "",
+      area_id: "",
     });
 
     setImageFile(null);
@@ -85,57 +83,25 @@ export default function SubcategoriesPage() {
 
   // ---------------- EDIT ----------------
 
-  function openEdit(sub) {
-    setEditingId(sub.subcategory_id);
+  function openEdit(outlet) {
+    setEditingId(outlet.outlet_id);
 
     setForm({
-      subcategory_name1: sub.subcategory_name1 || "",
-      subcategory_name2: sub.subcategory_name2 || "",
-      subcategory_name3: sub.subcategory_name3 || "",
-      subcategory_name4: sub.subcategory_name4 || "",
-      subcategory_name5: sub.subcategory_name5 || "",
-      subcategory_type: sub.subcategory_type || 1,
-      category_id: sub.category_id || "",
+      outlet_name1: outlet.outlet_name1 || "",
+      outlet_name2: outlet.outlet_name2 || "",
+      outlet_name3: outlet.outlet_name3 || "",
+      outlet_name4: outlet.outlet_name4 || "",
+      outlet_name5: outlet.outlet_name5 || "",
+      area_id: outlet.area_id || "",
     });
 
     setImageFile(null);
 
-    setImagePreview(sub.subcategory_card_background || null);
+    setImagePreview(outlet.outlet_image || null);
 
-    setExistingImage(sub.subcategory_card_background || null);
+    setExistingImage(outlet.outlet_image || null);
 
     setShowModal(true);
-  }
-
-  // ---------------- CONTENT ----------------
-
-  async function openContent(sub) {
-    setSelectedSub(sub);
-
-    const res = await fetch(
-      `/api/info-subcategory?subcategory_id=${sub.subcategory_id}`
-    );
-
-    const data = await res.json();
-
-    setEditorContent(data?.content || null);
-
-    setShowContentModal(true);
-  }
-
-  async function saveContent() {
-    await fetch("/api/info-subcategory", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        subcategory_id: selectedSub.subcategory_id,
-        content: editorContent,
-      }),
-    });
-
-    setShowContentModal(false);
   }
 
   // ---------------- FORM ----------------
@@ -189,7 +155,7 @@ export default function SubcategoriesPage() {
       };
 
       if (!editingId) {
-        await fetch("/api/subcategories", {
+        await fetch("/api/outlets", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -197,7 +163,7 @@ export default function SubcategoriesPage() {
           body: JSON.stringify(payload),
         });
       } else {
-        await fetch(`/api/subcategories/${editingId}`, {
+        await fetch(`/api/outlets/${editingId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -225,7 +191,7 @@ export default function SubcategoriesPage() {
     try {
       setDeletingId(id);
 
-      const response = await fetch(`/api/subcategories/${id}`, {
+      const response = await fetch(`/api/outlets/${id}`, {
         method: "DELETE",
       });
 
@@ -242,20 +208,20 @@ export default function SubcategoriesPage() {
 
   // ---------------- FILTER ----------------
 
-  const filtered = subcategories.filter((s) =>
+  const filtered = outlets.filter((o) =>
     languages.some((lang) => {
-      const field = `subcategory_name${lang.safe_order}`;
+      const field = `outlet_name${lang.safe_order}`;
 
-      return (s[field] || "")
+      return (o[field] || "")
         .toLowerCase()
         .includes(search.toLowerCase());
     })
   );
 
-  function getCategoryName(id) {
-    const cat = categories.find((c) => c.category_id === id);
+  function getAreaName(id) {
+    const cat = areas.find((c) => c.area_id === id);
 
-    return cat?.category_name1 || "—";
+    return cat?.area_name1 || "—";
   }
 
   function getTypeLabel(type) {
@@ -270,7 +236,7 @@ export default function SubcategoriesPage() {
     <div className="min-h-screen bg-gray-50">
 
       <div className="-mx-6 -mt-6">
-        <Topbar title="Sub-Categorias" />
+        <Topbar title="Outlets" />
       </div>
 
       {/* HEADER */}
@@ -279,7 +245,7 @@ export default function SubcategoriesPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Pesquisar subcategorias..."
+          placeholder="Pesquisar outlets..."
           className="h-11 w-80 border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none bg-white"
         />
 
@@ -288,7 +254,7 @@ export default function SubcategoriesPage() {
           disabled={showModal || isSaving}
           className={`h-11 px-5 rounded-lg ${showModal || isSaving ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
         >
-          + Criar Subcategoria
+          + Criar Outlet
         </button>
 
       </div>
@@ -308,60 +274,53 @@ export default function SubcategoriesPage() {
                 </th>
               ))}
 
-              <th className="p-4">Categoria</th>
+              <th className="p-4">Area</th>
               <th className="p-4">Tipo</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
 
           <tbody>
-            {filtered.map((sub) => (
-              <tr key={sub.subcategory_id} className="border-t">
+            {filtered.map((outlet) => (
+              <tr key={outlet.outlet_id} className="border-t">
 
                 <td className="p-4">
-                  {sub.subcategory_id}
+                  {outlet.outlet_id}
                 </td>
 
                 {languages.map((lang) => {
-                  const field = `subcategory_name${lang.safe_order}`;
+                  const field = `outlet_name${lang.safe_order}`;
 
                   return (
                     <td key={lang.lang_id} className="p-4">
-                      {sub[field]}
+                      {outlet[field]}
                     </td>
                   );
                 })}
 
                 <td className="p-4">
-                  {getCategoryName(sub.category_id)}
+                  {getAreaName(outlet.area_id)}
                 </td>
 
                 <td className="p-4">
-                  {getTypeLabel(sub.subcategory_type)}
+                  {getTypeLabel(outlet.outlet_type)}
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">
 
                   <button
-                    onClick={() => openContent(sub)}
-                    className="px-3 py-1 bg-blue-500 text-white rounded-lg"
-                  >
-                    Conteúdo
-                  </button>
-
-                  <button
-                    onClick={() => openEdit(sub)}
+                    onClick={() => openEdit(outlet)}
                     className="px-3 py-1 bg-gray-200 rounded-lg"
                   >
                     Editar
                   </button>
 
                   <button
-                    onClick={() => remove(sub.subcategory_id)}
-                    disabled={deletingId === sub.subcategory_id}
-                    className={`px-3 py-1 rounded-lg ${deletingId === sub.subcategory_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
+                    onClick={() => remove(outlet.outlet_id)}
+                    disabled={deletingId === outlet.outlet_id}
+                    className={`px-3 py-1 rounded-lg ${deletingId === outlet.outlet_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 text-white"}`}
                   >
-                    {deletingId === sub.subcategory_id ? "Eliminando..." : "Eliminar"}
+                    {deletingId === outlet.outlet_id ? "Eliminando..." : "Eliminar"}
                   </button>
 
                 </td>
@@ -384,31 +343,31 @@ export default function SubcategoriesPage() {
           >
 
             <h2 className="text-lg font-semibold">
-              {editingId ? "Editar" : "Criar"} Subcategoria
+              {editingId ? "Editar" : "Criar"} Outlet
             </h2>
 
             <select
-              name="category_id"
-              value={form.category_id}
+              name="area_id"
+              value={form.area_id}
               onChange={handleChange}
               className="h-10 border rounded-lg px-2"
               required
             >
-              <option value="">Selecionar categoria</option>
+              <option value="">Selecionar área</option>
 
-              {categories.map((c) => (
+              {areas.map((a) => (
                 <option
-                  key={c.category_id}
-                  value={c.category_id}
+                  key={a.area_id}
+                  value={a.area_id}
                 >
-                  {c.category_name1}
+                  {a.area_name}
                 </option>
               ))}
             </select>
 
             <select
-              name="subcategory_type"
-              value={form.subcategory_type}
+              name="outlet_type"
+              value={form.outlet_type}
               onChange={handleChange}
               className="h-10 border rounded-lg px-2"
             >
@@ -418,7 +377,7 @@ export default function SubcategoriesPage() {
             </select>
 
             {languages.map((lang) => {
-              const field = `subcategory_name${lang.safe_order}`;
+              const field = `outlet_name${lang.safe_order}`;
 
               return (
                 <input
@@ -537,7 +496,7 @@ export default function SubcategoriesPage() {
           <div className="bg-white w-[90vw] h-[85vh] rounded-2xl p-6 flex flex-col">
 
             <h2 className="text-xl font-semibold mb-4">
-              Conteúdo - {selectedSub?.subcategory_name1}
+              Conteúdo - {selectedSub?.outlet_name1}
             </h2>
 
             <div className="flex-1 overflow-hidden">

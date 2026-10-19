@@ -9,16 +9,16 @@ export async function PUT(req, context) {
 
   const body = await req.json();
 
-  const updated = await prisma.categories.update({
-    where: { category_id: id },
+  const updated = await prisma.Areas.update({
+    where: { area_id: id },
     data: {
-      category_name1: body.category_name1,
-      category_name2: body.category_name2,
-      category_name3: body.category_name3,
-      category_name4: body.category_name4,
-      category_name5: body.category_name5,
+      area_name1: body.area_name1,
+      area_name2: body.area_name2,
+      area_name3: body.area_name3,
+      area_name4: body.area_name4,
+      area_name5: body.area_name5,
       visible: body.visible,
-      category_card_background: body.category_card_background || null,
+      area_card_background: body.area_card_background || null,
     },
   });
 
@@ -29,8 +29,8 @@ export async function PUT(req, context) {
 export async function DELETE(req, context) {
   const params = await context.params;
 
-  await prisma.categories.delete({
-    where: { category_id: Number(params.id) },
+  await prisma.Areas.delete({
+    where: { area_id: Number(params.id) },
   });
 
   return Response.json({ ok: true });
