@@ -796,6 +796,13 @@ export default function Homepage() {
         : selectedArea !== null
           ? "outlet_card_background"
           : "area_card_background";
+    const cardIdField = selectedMenu !== null
+      ? "submenu_id"
+      : selectedOutlet !== null
+        ? "menu_id"
+        : selectedArea !== null
+          ? "outlet_id"
+          : "area_id";
     const rows = chunk(data, [2, 3]);
 
     return (
@@ -813,6 +820,8 @@ export default function Homepage() {
                 setSelectedOutlet(null);
               } else {
                 setSelectedArea(null);
+                setSelectedOutlet(null);
+                setSelectedMenu(null);
               }
             }}
             className="absolute top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg"
@@ -922,21 +931,18 @@ export default function Homepage() {
               >
                 {row.map((item, i) => (
                   <div
-                    key={
-                      item.area_id ??
-                      item.outlet_id ??
-                      item.menu_id ??
-                      item.submenu_id ??
-                      i
-                    }
+                    key={`${cardIdField}-${item[cardIdField] ?? i}`}
                     onClick={() => {
                       if (selectedMenu !== null) return;
                       if (selectedOutlet !== null) {
                         setSelectedMenu(item.menu_id);
                       } else if (selectedArea !== null) {
                         setSelectedOutlet(item.outlet_id);
+                        setSelectedMenu(null);
                       } else {
                         setSelectedArea(item.area_id);
+                        setSelectedOutlet(null);
+                        setSelectedMenu(null);
                       }
                     }}
                     className={`w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold ${selectedMenu === null ? "cursor-pointer hover:scale-[1.02]" : "cursor-default"} transition overflow-hidden`}
@@ -1027,6 +1033,7 @@ export default function Homepage() {
     const levelBackgroundField = selectedMenu !== null
       ? "submenu_card_background"
       : "menu_card_background";
+    const levelIdField = selectedMenu !== null ? "submenu_id" : "menu_id";
     const levelRows = chunk(levelItems, [2, 3]);
 
     return (
@@ -1120,11 +1127,7 @@ export default function Homepage() {
                     >
                       {row.map((item, itemIndex) => (
                         <button
-                          key={
-                            item.menu_id ??
-                            item.submenu_id ??
-                            itemIndex
-                          }
+                          key={`${levelIdField}-${item[levelIdField] ?? itemIndex}`}
                           type="button"
                           onClick={() => {
                             if (selectedMenu === null) {
