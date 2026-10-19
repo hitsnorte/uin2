@@ -149,9 +149,8 @@ export default function OutletsPage() {
 
       const payload = {
         ...form,
-        category_id: Number(form.category_id),
-        subcategory_type: Number(form.subcategory_type),
-        subcategory_card_background: imageUrl,
+        area_id: Number(form.area_id),
+        outlet_card_background: imageUrl,
       };
 
       if (!editingId) {
@@ -360,7 +359,7 @@ export default function OutletsPage() {
                   key={a.area_id}
                   value={a.area_id}
                 >
-                  {a.area_name}
+                  {a.area_name1}
                 </option>
               ))}
             </select>
