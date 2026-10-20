@@ -15,6 +15,12 @@ async function getMenuWithoutSubmenus(menuId) {
     },
     select: {
       menu_id: true,
+      visible: true,
+      Outlets: {
+        select: {
+          visible: true,
+        },
+      },
     },
   });
 }
@@ -22,9 +28,6 @@ async function getMenuWithoutSubmenus(menuId) {
 export async function GET(req) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return Response.json({ error: "Não autenticado." }, { status: 401 });
-    }
 
     const { searchParams } = new URL(req.url);
     const menuId = parseMenuId(searchParams.get("menu_id"));
@@ -33,9 +36,12 @@ export async function GET(req) {
     }
 
     const menu = await getMenuWithoutSubmenus(menuId);
-    if (!menu) {
+    if (
+      !menu ||
+      (!session?.user && (!menu.visible || !menu.Outlets?.visible))
+    ) {
       return Response.json(
-        { error: "O menu não existe ou permite submenus." },
+        { error: "O menu não existe, não está visível ou permite submenus." },
         { status: 404 }
       );
     }

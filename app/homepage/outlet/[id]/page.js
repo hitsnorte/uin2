@@ -10,6 +10,7 @@ import ProductNode from "../../../../components/editor/ProductNode";
 import FrontendHeader from "@/components/layout/frontend/header";
 
 import "./content.css";
+import "../../loading.css";
 
 function collectProductIds(value, ids = []) {
   if (Array.isArray(value)) {
@@ -61,8 +62,14 @@ function enrichProductNodes(value, productsById) {
 export default function OutletPage() {
   const params = useParams();
   const router = useRouter();
+  const routeMatch = String(params.id || "").match(/^(menu|submenu)-(\d+)$/);
+  const contentType = routeMatch?.[1] || null;
+  const contentId = routeMatch ? Number(routeMatch[2]) : null;
 
   const [content, setContent] = useState(null);
+  const [contentItem, setContentItem] = useState(null);
+  const [contentOutletId, setContentOutletId] = useState(null);
+  const [contentError, setContentError] = useState("");
   const [personalize, setPersonalize] = useState(null);
   const [areas, setAreas] = useState([]);
   const [outlets, setOutlets] = useState([]);
@@ -84,15 +91,28 @@ export default function OutletPage() {
 
   useEffect(() => {
     fetchData();
+  }, [params.id]);
+
+  useEffect(() => {
     checkSession();
   }, []);
 
   async function fetchData() {
+    setLoading(true);
+    setContentError("");
+
     try {
-      const [info, pers, areasData, outletsData, langs] = await Promise.all([
-        fetch(`/api/info-subcategory/${params.id}`).then((r) =>
-          r.json()
-        ),
+      if (!contentType || !contentId) {
+        throw new Error("O conteúdo solicitado é inválido.");
+      }
+
+      const contentUrl =
+        contentType === "menu"
+          ? `/api/menu-content?menu_id=${contentId}`
+          : `/api/submenu-content?submenu_id=${contentId}`;
+
+      const [contentResponse, pers, areasData, outletsData, langs, menusData, submenusData] = await Promise.all([
+        fetch(contentUrl),
 
         fetch("/api/personalize").then((r) => r.json()),
 
@@ -101,13 +121,40 @@ export default function OutletPage() {
         fetch("/api/outlets").then((r) => r.json()),
 
         fetch("/api/languages").then((r) => r.json()),
+        fetch("/api/menus").then((r) => r.json()),
+        fetch("/api/submenus").then((r) => r.json()),
       ]);
 
-      if (!Array.isArray(areasData) || !Array.isArray(outletsData)) {
-        throw new TypeError("As APIs de áreas e outlets devem devolver listas.");
+      const contentData = await contentResponse.json();
+      if (!contentResponse.ok) {
+        throw new Error(contentData.error || "Erro ao carregar o conteúdo.");
       }
 
-      const productIds = collectProductIds(info?.content);
+      if (
+        !Array.isArray(areasData) ||
+        !Array.isArray(outletsData) ||
+        !Array.isArray(menusData) ||
+        !Array.isArray(submenusData)
+      ) {
+        throw new TypeError("As APIs de áreas, outlets, menus e submenus devem devolver listas.");
+      }
+
+      const itemList = contentType === "menu" ? menusData : submenusData;
+      const itemIdField = contentType === "menu" ? "menu_id" : "submenu_id";
+      const item = itemList.find((entry) => Number(entry[itemIdField]) === contentId);
+      if (!item) {
+        throw new Error("O menu ou submenu solicitado não foi encontrado.");
+      }
+
+      const parentMenu =
+        contentType === "submenu"
+          ? menusData.find((menu) => Number(menu.menu_id) === Number(item.menu_id))
+          : item;
+      if (!parentMenu || (contentType === "submenu" && parentMenu.has_submenus !== true)) {
+        throw new Error("O submenu não pertence a um menu com submenus ativos.");
+      }
+
+      const productIds = collectProductIds(contentData.content);
       const products = await Promise.all(
         productIds.map(async (productId) => {
           const response = await fetch(`/api/products/${productId}`);
@@ -121,7 +168,9 @@ export default function OutletPage() {
           product,
         ])
       );
-      setContent(enrichProductNodes(info?.content || null, productsById));
+      setContent(enrichProductNodes(contentData.content || null, productsById));
+      setContentItem(item);
+      setContentOutletId(parentMenu.outlet_id);
       setPersonalize(pers || null);
       setAreas(areasData.filter((area) => area.visible));
       setOutlets(outletsData.filter((outlet) => outlet.visible));
@@ -131,6 +180,7 @@ export default function OutletPage() {
       setSelectedLang(savedLang);
     } catch (error) {
       console.error(error);
+      setContentError(error.message || "Erro ao carregar o conteúdo.");
     } finally {
       setLoading(false);
     }
@@ -205,7 +255,7 @@ export default function OutletPage() {
   // ---------------- ACTIVE OUTLET ----------------
 
   const activeOutlet = outlets.find(
-    (outlet) => Number(outlet.outlet_id) === Number(params.id)
+    (outlet) => Number(outlet.outlet_id) === Number(contentOutletId)
   );
   const quantity = Math.max(1, Number.parseInt(orderQuantity, 10) || 1);
 
@@ -309,7 +359,11 @@ export default function OutletPage() {
       }}
     >
       <FrontendHeader
-        title={getName(activeOutlet, "outlet_name") || "Local"}
+        title={
+          getName(contentItem, contentType === "menu" ? "menu_name" : "submenu_name") ||
+          getName(activeOutlet, "outlet_name") ||
+          "Local"
+        }
         areas={areas}
         outlets={outlets}
         personalize={personalize}
@@ -318,8 +372,8 @@ export default function OutletPage() {
         openArea={openArea}
         setOpenArea={setOpenArea}
         onHomeClick={() => router.push("/homepage")}
-        onOutletClick={(outletId) => {
-          window.location.href = `/homepage/outlet/${outletId}`;
+        onOutletClick={() => {
+          router.push("/homepage");
         }}
         languages={languages}
         selectedLang={selectedLang}
@@ -337,7 +391,7 @@ export default function OutletPage() {
       />
 
       {/* CONTENT */}
-      <div className="flex-1 p-6">
+      <div key={`${contentType}-${contentId}`} className="page-transition-enter flex-1 p-6">
         <div
           className="max-w-4xl mx-auto p-8 rounded-2xl shadow-xl border"
           style={{
@@ -352,7 +406,13 @@ export default function OutletPage() {
               "#00000022",
           }}
         >
-          <EditorContent editor={editor} />
+          {contentError ? (
+            <p role="alert" className="text-center text-red-600">
+              {contentError}
+            </p>
+          ) : (
+            <EditorContent editor={editor} />
+          )}
         </div>
       </div>
 

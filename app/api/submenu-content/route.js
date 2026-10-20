@@ -13,6 +13,19 @@ async function getSubmenu(submenuId) {
     select: {
       submenu_id: true,
       menu_id: true,
+      visible: true,
+      Menus: {
+        select: {
+          has_submenus: true,
+          visible: true,
+          outlet_id: true,
+          Outlets: {
+            select: {
+              visible: true,
+            },
+          },
+        },
+      },
     },
   });
 }
@@ -20,9 +33,6 @@ async function getSubmenu(submenuId) {
 export async function GET(req) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return Response.json({ error: "Não autenticado." }, { status: 401 });
-    }
 
     const { searchParams } = new URL(req.url);
     const submenuId = parseSubmenuId(searchParams.get("submenu_id"));
@@ -31,12 +41,25 @@ export async function GET(req) {
     }
 
     const submenu = await getSubmenu(submenuId);
-    if (!submenu) {
-      return Response.json({ error: "Submenu não encontrado." }, { status: 404 });
+    if (
+      !submenu ||
+      submenu.Menus?.has_submenus !== true ||
+      (!session?.user &&
+        (!submenu.visible ||
+          !submenu.Menus.visible ||
+          !submenu.Menus.Outlets?.visible))
+    ) {
+      return Response.json(
+        { error: "O submenu não existe, não está visível ou não pertence a um menu com submenus." },
+        { status: 404 }
+      );
     }
 
     const submenuContent = await prisma.menuSubmenuContent.findFirst({
-      where: { submenu_id: submenuId },
+      where: {
+        menu_id: submenu.menu_id,
+        submenu_id: submenu.submenu_id,
+      },
       orderBy: { content_id: "desc" },
       select: { content: true },
     });
@@ -71,7 +94,10 @@ export async function POST(req) {
     }
 
     const existingContent = await prisma.menuSubmenuContent.findFirst({
-      where: { submenu_id: submenuId },
+      where: {
+        menu_id: submenu.menu_id,
+        submenu_id: submenu.submenu_id,
+      },
       orderBy: { content_id: "desc" },
       select: { content_id: true },
     });

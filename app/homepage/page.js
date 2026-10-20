@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FiMenu } from "react-icons/fi";
 import "./loading.css";
 import { IoIosLogOut } from "react-icons/io";
@@ -13,6 +14,7 @@ import FrontendHeader from "@/components/layout/frontend/header";
 import { useTranslations } from "@/app/hooks/useTranslations";
 
 export default function Homepage() {
+  const router = useRouter();
   const [areas, setAreas] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [menus, setMenus] = useState([]);
@@ -371,6 +373,14 @@ export default function Homepage() {
 
   function getMenuSubmenus(menuId) {
     return submenus.filter((submenu) => Number(submenu.menu_id) === Number(menuId));
+  }
+
+  function openMenuContent(menu) {
+    router.push(`/homepage/outlet/menu-${menu.menu_id}`);
+  }
+
+  function openSubmenuContent(submenu) {
+    router.push(`/homepage/outlet/submenu-${submenu.submenu_id}`);
   }
 
   const theme = {
@@ -933,9 +943,16 @@ export default function Homepage() {
                   <div
                     key={`${cardIdField}-${item[cardIdField] ?? i}`}
                     onClick={() => {
-                      if (selectedMenu !== null) return;
+                      if (selectedMenu !== null) {
+                        openSubmenuContent(item);
+                        return;
+                      }
                       if (selectedOutlet !== null) {
-                        setSelectedMenu(item.menu_id);
+                        if (item.has_submenus === false) {
+                          openMenuContent(item);
+                        } else {
+                          setSelectedMenu(item.menu_id);
+                        }
                       } else if (selectedArea !== null) {
                         setSelectedOutlet(item.outlet_id);
                         setSelectedMenu(null);
@@ -945,7 +962,7 @@ export default function Homepage() {
                         setSelectedMenu(null);
                       }
                     }}
-                    className={`w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold ${selectedMenu === null ? "cursor-pointer hover:scale-[1.02]" : "cursor-default"} transition overflow-hidden`}
+                    className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer hover:scale-[1.02] transition overflow-hidden"
                     style={{
                       background: getCardColor(rowIndex * 10 + i),
                       backgroundImage: `url("${encodeURI(
@@ -1131,14 +1148,16 @@ export default function Homepage() {
                           type="button"
                           onClick={() => {
                             if (selectedMenu === null) {
-                              setSelectedMenu(item.menu_id);
+                              if (item.has_submenus === false) {
+                                openMenuContent(item);
+                              } else {
+                                setSelectedMenu(item.menu_id);
+                              }
+                            } else {
+                              openSubmenuContent(item);
                             }
                           }}
-                          className={`w-full min-h-[30vh] sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold transition overflow-hidden ${
-                            selectedMenu === null
-                              ? "cursor-pointer hover:scale-[1.02]"
-                              : "cursor-default"
-                          }`}
+                          className="w-full min-h-[30vh] sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold transition overflow-hidden cursor-pointer hover:scale-[1.02]"
                           style={{
                             background: getCardColor(rowIndex * 10 + itemIndex),
                             backgroundImage: `url("${encodeURI(item[levelBackgroundField] || "")}")`,
