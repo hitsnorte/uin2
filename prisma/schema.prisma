@@ -294,6 +294,8 @@ model Outlets {
   reservation            Int?
   roomservice            Int?
   order                  Int?
+  schedule_id            Int?
+  schedule_visible       Boolean  @default(false)
   Menus                  Menus[]
   Areas                  Areas?   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
 

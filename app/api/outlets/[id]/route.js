@@ -1,5 +1,33 @@
 import { prisma } from "@/lib/prisma";
 
+function toBooleanFlag(value) {
+  return value === true || value === 1 || value === "1";
+}
+
+function toNumericFlag(value) {
+  return toBooleanFlag(value) ? 1 : 0;
+}
+
+async function getSelectedScheduleId(body, existingOutlet, isRequired) {
+  if (!isRequired) {
+    return body.schedule_id === undefined
+      ? existingOutlet.schedule_id
+      : body.schedule_id
+        ? Number(body.schedule_id)
+        : null;
+  }
+
+  const scheduleId = Number(body.schedule_id ?? existingOutlet.schedule_id);
+  if (!Number.isInteger(scheduleId) || scheduleId <= 0) return null;
+
+  const schedule = await prisma.schedules.findUnique({
+    where: { schedule_id: scheduleId },
+    select: { schedule_id: true },
+  });
+
+  return schedule ? scheduleId : null;
+}
+
 // UPDATE
 export async function PUT(req, context) {
   try {
@@ -11,6 +39,35 @@ export async function PUT(req, context) {
     }
 
     const body = await req.json();
+    const existingOutlet = await prisma.outlets.findUnique({
+      where: { outlet_id: id },
+    });
+
+    if (!existingOutlet) {
+      return Response.json({ error: "Outlet não encontrado" }, { status: 404 });
+    }
+
+    const reservationEnabled =
+      body.reservation === undefined
+        ? toBooleanFlag(existingOutlet.reservation)
+        : toBooleanFlag(body.reservation);
+    const scheduleAssociationEnabled =
+      body.associate_schedule === undefined
+        ? toBooleanFlag(existingOutlet.associate_schedule)
+        : toBooleanFlag(body.associate_schedule);
+    const scheduleRequired = reservationEnabled || scheduleAssociationEnabled;
+    const selectedScheduleId = await getSelectedScheduleId(
+      body,
+      existingOutlet,
+      scheduleRequired
+    );
+
+    if (scheduleRequired && selectedScheduleId === null) {
+      return Response.json(
+        { error: "É obrigatório selecionar um horário válido para o outlet." },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.outlets.update({
       where: {
@@ -26,6 +83,31 @@ export async function PUT(req, context) {
         area_id: Number(body.area_id),
         visible: body.visible ?? true,
         outlet_card_background: body.outlet_card_background || null,
+        schedule_id: selectedScheduleId,
+        ...(body.associate_schedule !== undefined && {
+          associate_schedule: toBooleanFlag(body.associate_schedule),
+        }),
+        ...(body.hide_schedule !== undefined && {
+          hide_schedule: toBooleanFlag(body.hide_schedule),
+        }),
+        ...(body.access_points !== undefined && {
+          access_points: toBooleanFlag(body.access_points),
+        }),
+        ...(body.reservation !== undefined && {
+          reservation: toNumericFlag(body.reservation),
+        }),
+        ...(body.service_reservation !== undefined && {
+          service_reservation: toBooleanFlag(body.service_reservation),
+        }),
+        ...(body.takeaway_order !== undefined && {
+          takeaway_order: toBooleanFlag(body.takeaway_order),
+        }),
+        ...(body.order !== undefined && {
+          order: toNumericFlag(body.order),
+        }),
+        ...(body.instant_order !== undefined && {
+          instant_order: toBooleanFlag(body.instant_order),
+        }),
       },
     });
 

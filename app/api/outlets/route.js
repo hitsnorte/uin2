@@ -1,5 +1,27 @@
 import { prisma } from "@/lib/prisma";
 
+function toBooleanFlag(value) {
+  return value === true || value === 1 || value === "1";
+}
+
+function toNumericFlag(value) {
+  return toBooleanFlag(value) ? 1 : 0;
+}
+
+async function getSelectedScheduleId(body, isRequired) {
+  if (!isRequired && !body.schedule_id) return null;
+
+  const scheduleId = Number(body.schedule_id);
+  if (!Number.isInteger(scheduleId) || scheduleId <= 0) return null;
+
+  const schedule = await prisma.schedules.findUnique({
+    where: { schedule_id: scheduleId },
+    select: { schedule_id: true },
+  });
+
+  return schedule ? scheduleId : null;
+}
+
 // GET ALL
 export async function GET() {
   try {
@@ -29,11 +51,30 @@ export async function POST(req) {
       // outlet_type,
       area_id,
       outlet_card_background,
+      schedule_id,
+      associate_schedule,
+      hide_schedule,
+      access_points,
+      reservation,
+      service_reservation,
+      takeaway_order,
+      order,
+      instant_order,
     } = body;
 
     if (!area_id) {
       return Response.json(
         { error: "area_id obrigatório" },
+        { status: 400 }
+      );
+    }
+
+    const scheduleRequired =
+      toBooleanFlag(reservation) || toBooleanFlag(associate_schedule);
+    const selectedScheduleId = await getSelectedScheduleId(body, scheduleRequired);
+    if (scheduleRequired && selectedScheduleId === null) {
+      return Response.json(
+        { error: "É obrigatório selecionar um horário válido para o outlet." },
         { status: 400 }
       );
     }
@@ -51,6 +92,15 @@ export async function POST(req) {
 
         // ✅ IMPORTANT: now using URL from upload endpoint
         outlet_card_background: outlet_card_background || null,
+        schedule_id: selectedScheduleId,
+        associate_schedule: toBooleanFlag(associate_schedule),
+        hide_schedule: toBooleanFlag(hide_schedule),
+        access_points: toBooleanFlag(access_points),
+        reservation: toNumericFlag(reservation),
+        service_reservation: toBooleanFlag(service_reservation),
+        takeaway_order: toBooleanFlag(takeaway_order),
+        order: toNumericFlag(order),
+        instant_order: toBooleanFlag(instant_order),
       },
     });
 

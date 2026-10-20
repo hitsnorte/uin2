@@ -6,15 +6,31 @@ import Topbar from "@/components/layout/Topbar";
 import { QRCodeCanvas } from "qrcode.react";
 import { IoQrCode } from "react-icons/io5";
 
+function getScheduleName(schedule) {
+  let data = schedule.schedule_json;
+
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      data = null;
+    }
+  }
+
+  return data?.name || `Horário ${schedule.schedule_id}`;
+}
+
 export default function OutletsPage() {
   const [outlets, setOutlets] = useState([]);
   const [areas, setAreas] = useState([]);
   const [languages, setLanguages] = useState([]);
+  const [schedules, setSchedules] = useState([]);
 
   const [search, setSearch] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState("general");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -31,6 +47,15 @@ export default function OutletsPage() {
     outlet_name4: "",
     outlet_name5: "",
     area_id: "",
+    schedule_id: "",
+    associate_schedule: false,
+    hide_schedule: false,
+    access_points: false,
+    reservation: false,
+    service_reservation: false,
+    takeaway_order: false,
+    order: false,
+    instant_order: false,
   });
 
   // ---------------- IMAGE STATE ----------------
@@ -42,10 +67,22 @@ export default function OutletsPage() {
   // ---------------- FETCH ----------------
 
   async function fetchData() {
-    const [outlets, areas, langs] = await Promise.all([
-      fetch("/api/outlets").then((r) => r.json()),
-      fetch("/api/areas").then((r) => r.json()),
-      fetch("/api/languages").then((r) => r.json()),
+    const [outletsResponse, areasResponse, languagesResponse, schedulesResponse] = await Promise.all([
+      fetch("/api/outlets"),
+      fetch("/api/areas"),
+      fetch("/api/languages"),
+      fetch("/api/schedules"),
+    ]);
+
+    if (!schedulesResponse.ok) {
+      throw new Error("Não foi possível carregar os horários.");
+    }
+
+    const [outlets, areas, langs, schedules] = await Promise.all([
+      outletsResponse.json(),
+      areasResponse.json(),
+      languagesResponse.json(),
+      schedulesResponse.json(),
     ]);
 
     const normalizedLangs = langs
@@ -58,10 +95,14 @@ export default function OutletsPage() {
     setOutlets(outlets);
     setAreas(areas);
     setLanguages(normalizedLangs);
+    setSchedules(schedules);
   }
 
   useEffect(() => {
-    fetchData();
+    fetchData().catch((error) => {
+      console.error(error);
+      alert(error.message);
+    });
   }, []);
 
   // ---------------- CREATE ----------------
@@ -76,8 +117,18 @@ export default function OutletsPage() {
       outlet_name4: "",
       outlet_name5: "",
       area_id: "",
+      schedule_id: "",
+      associate_schedule: false,
+      hide_schedule: false,
+      access_points: false,
+      reservation: false,
+      service_reservation: false,
+      takeaway_order: false,
+      order: false,
+      instant_order: false,
     });
 
+    setActiveTab("general");
     setImageFile(null);
     setImagePreview(null);
     setExistingImage(null);
@@ -97,8 +148,18 @@ export default function OutletsPage() {
       outlet_name4: outlet.outlet_name4 || "",
       outlet_name5: outlet.outlet_name5 || "",
       area_id: outlet.area_id || "",
+      schedule_id: outlet.schedule_id ? String(outlet.schedule_id) : "",
+      associate_schedule: outlet.associate_schedule ?? false,
+      hide_schedule: outlet.hide_schedule ?? false,
+      access_points: outlet.access_points ?? false,
+      reservation: outlet.reservation === 1 || outlet.reservation === "1",
+      service_reservation: outlet.service_reservation ?? false,
+      takeaway_order: outlet.takeaway_order ?? false,
+      order: outlet.order === 1 || outlet.order === "1",
+      instant_order: outlet.instant_order ?? false,
     });
 
+    setActiveTab("general");
     setImageFile(null);
 
     setImagePreview(outlet.outlet_image || null);
@@ -115,6 +176,23 @@ export default function OutletsPage() {
       ...form,
       [e.target.name]: e.target.value,
     });
+  }
+
+  function handleSettingChange(e) {
+    const { name, checked } = e.target;
+
+    setForm((currentForm) => ({
+      ...currentForm,
+      [name]: checked,
+    }));
+
+    if (name === "reservation" && !checked) {
+      setActiveTab("general");
+    }
+
+    if (name === "access_points" && !checked) {
+      setActiveTab("general");
+    }
   }
 
   // ---------------- IMAGE UPLOAD ----------------
@@ -142,6 +220,19 @@ export default function OutletsPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    if (!form.area_id) {
+      alert("Selecionar área");
+      setActiveTab("general");
+      return;
+    }
+
+    if ((form.reservation || form.associate_schedule) && !form.schedule_id) {
+      alert("Selecione um horário para o outlet.");
+      setActiveTab(form.reservation ? "tableReservation" : "general");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -154,25 +245,32 @@ export default function OutletsPage() {
       const payload = {
         ...form,
         area_id: Number(form.area_id),
+        schedule_id: form.schedule_id ? Number(form.schedule_id) : null,
+        reservation: Number(form.reservation),
+        order: Number(form.order),
         outlet_card_background: imageUrl,
       };
 
       if (!editingId) {
-        await fetch("/api/outlets", {
+        const response = await fetch("/api/outlets", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
         });
+
+        if (!response.ok) throw new Error("Não foi possível criar o outlet.");
       } else {
-        await fetch(`/api/outlets/${editingId}`, {
+        const response = await fetch(`/api/outlets/${editingId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
         });
+
+        if (!response.ok) throw new Error("Não foi possível guardar o outlet.");
       }
 
       setShowModal(false);
@@ -184,7 +282,7 @@ export default function OutletsPage() {
       fetchData();
     } catch (err) {
       console.error(err);
-      alert("Erro ao guardar subcategoria");
+      alert("Erro ao guardar outlet");
     } finally {
       setIsSaving(false);
     }
@@ -371,110 +469,190 @@ export default function OutletsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white p-6 rounded-2xl w-[450px] flex flex-col gap-3"
+            className="bg-white p-6 rounded-2xl w-[450px] max-h-[90vh] overflow-y-auto flex flex-col gap-3"
           >
 
             <h2 className="text-lg font-semibold">
               {editingId ? "Editar" : "Criar"} Outlet
             </h2>
 
-            <select
-              name="area_id"
-              value={form.area_id}
-              onChange={handleChange}
-              className="h-10 border rounded-lg px-2"
-              required
-            >
-              <option value="">Selecionar área</option>
-
-              {areas.map((a) => (
-                <option
-                  key={a.area_id}
-                  value={a.area_id}
+            <div className="flex border-b">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "general"}
+                onClick={() => setActiveTab("general")}
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "general" ? "border-red-500 text-red-600" : "border-transparent text-gray-500"}`}
+              >
+                Geral
+              </button>
+              {form.reservation && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "tableReservation"}
+                  onClick={() => setActiveTab("tableReservation")}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "tableReservation" ? "border-red-500 text-red-600" : "border-transparent text-gray-500"}`}
                 >
-                  {a.area_name1}
-                </option>
-              ))}
-            </select>
+                  Reserva de Mesa
+                </button>
+              )}
+              {form.access_points && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "accessPoints"}
+                  onClick={() => setActiveTab("accessPoints")}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "accessPoints" ? "border-red-500 text-red-600" : "border-transparent text-gray-500"}`}
+                >
+                  Pontos de acesso
+                </button>
+              )}
+            </div>
 
-            <select
-              name="outlet_type"
-              value={form.outlet_type}
-              onChange={handleChange}
-              className="h-10 border rounded-lg px-2"
-            >
-              <option value={1}>Info</option>
-              {/* <option value={2}>Reservation</option> */}
-              {/* <option value={3}>Order</option> */}
-            </select>
+            {activeTab === "general" ? (
+              <>
+                {languages.map((lang) => {
+                  const field = `outlet_name${lang.safe_order}`;
 
-            {languages.map((lang) => {
-              const field = `outlet_name${lang.safe_order}`;
+                  return (
+                    <div key={lang.lang_id} className="flex flex-col gap-0">
+                      <label className="text-xs text-gray-500 font-bold">
+                        Nome ({lang.lang_name})
+                      </label>
+                      <input
+                        name={field}
+                        value={form[field] || ""}
+                        onChange={handleChange}
+                        placeholder={lang.lang_name}
+                        className="h-10 border rounded-lg px-3"
+                      />
+                    </div>
+                  );
+                })}
 
-              return (
-                <input
-                  key={lang.lang_id}
-                  name={field}
-                  value={form[field] || ""}
-                  onChange={handleChange}
-                  placeholder={lang.lang_name}
-                  className="h-10 border rounded-lg px-3"
-                />
-              );
-            })}
+                <div className="flex flex-col gap-0">
+                  <label className="text-xs text-gray-500 font-bold">
+                    Área
+                  </label>
 
-            {/* IMAGE */}
+                  <select
+                    name="area_id"
+                    value={form.area_id}
+                    onChange={handleChange}
+                    className="h-10 border rounded-lg px-2"
+                    required
+                  >
+                    <option value="">Selecionar área</option>
+
+                    {areas.map((a) => (
+                      <option key={a.area_id} value={a.area_id}>
+                        {a.area_name1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {form.associate_schedule && (
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="general_schedule_id" className="text-xs text-gray-500 font-bold">
+                      Horário associado
+                    </label>
+                    <select
+                      id="general_schedule_id"
+                      name="schedule_id"
+                      value={form.schedule_id}
+                      onChange={handleChange}
+                      required={form.associate_schedule || form.reservation}
+                      className="h-10 border rounded-lg px-2"
+                    >
+                      <option value="">Selecionar horário</option>
+                      {schedules.map((schedule) => (
+                        <option key={schedule.schedule_id} value={schedule.schedule_id}>
+                          {getScheduleName(schedule)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <h3 className="text-sm text-gray-600 font-semibold">Configurações de Outlet</h3>
+
+                <div className="grid gap-2">
+                  {[
+                    ["associate_schedule", "Associar horário"],
+                    ["access_points", "Permite pontos de acesso"],
+                    ["reservation", "Permite reserva de mesa"],
+                    ["service_reservation", "Permite reserva de serviços"],
+                    ["takeaway_order", "Permite pedir para levar (encomenda)"],
+                    ["order", "Permite pedir no outlet"],
+                    ["instant_order", "Permite pedir pedidos instantâneos"],
+                  ].map(([name, label]) => (
+                    <label key={name} className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name={name}
+                        checked={Boolean(form[name])}
+                        onChange={handleSettingChange}
+                        className="h-4 w-4 accent-red-500"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                {/* IMAGE */}
             <label className="border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:border-red-400 hover:bg-red-50 transition flex flex-col items-center justify-center text-center">
-  <div className="text-4xl mb-2">🖼️</div>
+              <div className="text-4xl mb-2">🖼️</div>
 
-  <span className="font-medium text-gray-700">
-    Clique para selecionar uma imagem
-  </span>
+              <span className="font-medium text-gray-700">
+                Clique para selecionar uma imagem
+              </span>
 
-  <span className="text-sm text-gray-500 mt-1">
-    PNG, JPG, JPEG, WEBP
-  </span>
+              <span className="text-sm text-gray-500 mt-1">
+                PNG, JPG, JPEG, WEBP
+              </span>
 
-  <span className="text-xs text-gray-400 mt-2">
-    Tamanho máximo: 850 KB
-  </span>
+              <span className="text-xs text-gray-400 mt-2">
+                Tamanho máximo: 850 KB
+              </span>
 
-  <input
-    type="file"
-    accept=".png,.jpg,.jpeg,.webp,image/*"
-    className="hidden"
-    onChange={(e) => {
-      const file = e.target.files?.[0];
+              <input
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
 
-      if (!file) return;
+                  if (!file) return;
 
-      if (file.size > 850 * 1024) {
-        alert("A imagem não pode exceder 850 KB.");
-        return;
-      }
+                  if (file.size > 850 * 1024) {
+                    alert("A imagem não pode exceder 850 KB.");
+                    return;
+                  }
 
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }}
-  />
-</label>
+                  setImageFile(file);
+                  setImagePreview(URL.createObjectURL(file));
+                }}
+              />
+            </label>
 
             {imagePreview && (
-  <div className="relative overflow-hidden rounded-xl border bg-gray-50">
-    <img
-      src={imagePreview}
-      alt="Preview"
-      className="w-full h-48 object-cover"
-    />
+              <div className="relative overflow-hidden rounded-xl border bg-gray-50">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-full h-48 object-cover"
+                />
 
-    <button
-      type="button"
-      onClick={() => {
-        setImageFile(null);
-        setImagePreview(null);
-        setExistingImage(null);
-      }}
-      className="
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagePreview(null);
+                    setExistingImage(null);
+                  }}
+                  className="
         absolute top-3 right-3
         h-8 w-8
         rounded-full
@@ -485,15 +663,55 @@ export default function OutletsPage() {
         transition
         flex items-center justify-center
       "
-    >
-      ✕
-    </button>
+                >
+                  ✕
+                </button>
 
-    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-3 py-2">
-      Imagem selecionada
-    </div>
-  </div>
-)}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-3 py-2">
+                  Imagem selecionada
+                </div>
+              </div>
+            )}
+              </>
+            ) : activeTab === "tableReservation" ? (
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm text-gray-600 font-semibold">Configurações de reserva de mesa</h3>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="reservation_schedule_id" className="text-xs text-gray-500 font-bold">
+                    Horário
+                  </label>
+                  <select
+                    id="reservation_schedule_id"
+                    name="schedule_id"
+                    value={form.schedule_id}
+                    onChange={handleChange}
+                    required={form.reservation || form.associate_schedule}
+                    className="h-10 border rounded-lg px-2"
+                  >
+                    <option value="">Selecionar horário</option>
+                    {schedules.map((schedule) => (
+                      <option key={schedule.schedule_id} value={schedule.schedule_id}>
+                        {getScheduleName(schedule)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    name="hide_schedule"
+                    checked={Boolean(form.hide_schedule)}
+                    onChange={handleSettingChange}
+                    className="h-4 w-4 accent-red-500"
+                  />
+                  Ocultar horário
+                </label>
+              </div>
+            ) : (
+              <div role="tabpanel" className="rounded-lg border bg-gray-50 p-4 text-sm text-gray-600">
+                Configurações de pontos de acesso.
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 mt-2">
 
