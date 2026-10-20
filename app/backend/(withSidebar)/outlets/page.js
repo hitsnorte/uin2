@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Editor from "@/components/editor/page.js";
 import Topbar from "@/components/layout/Topbar";
+import { QRCodeCanvas } from "qrcode.react";
+import { IoQrCode } from "react-icons/io5";
 
 export default function OutletsPage() {
   const [outlets, setOutlets] = useState([]);
@@ -19,6 +21,8 @@ export default function OutletsPage() {
   const [showContentModal, setShowContentModal] = useState(false);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [editorContent, setEditorContent] = useState(null);
+  const [qrOutlet, setQrOutlet] = useState(null);
+  const [qrUrl, setQrUrl] = useState("");
 
   const [form, setForm] = useState({
     outlet_name1: "",
@@ -231,6 +235,27 @@ export default function OutletsPage() {
     return "-";
   }
 
+  function openOutletQr(outlet) {
+    const params = new URLSearchParams();
+    if (outlet.area_id != null) {
+      params.set("area_id", outlet.area_id);
+    }
+    params.set("outlet_id", outlet.outlet_id);
+
+    setQrOutlet(outlet);
+    setQrUrl(`${window.location.origin}/homepage?${params.toString()}`);
+  }
+
+  function downloadOutletQr() {
+    const canvas = document.getElementById("outlet-qr-code");
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `outlet-${qrOutlet?.outlet_id}-qrcode.png`;
+    link.click();
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -306,6 +331,14 @@ export default function OutletsPage() {
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">
+
+                  <button
+                    type="button"
+                    onClick={() => openOutletQr(outlet)}
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg"
+                  >
+                    <IoQrCode />
+                  </button>
 
                   <button
                     onClick={() => openEdit(outlet)}
@@ -525,6 +558,45 @@ export default function OutletsPage() {
 
           </div>
 
+        </div>
+      )}
+
+      {qrOutlet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
+            <h2 className="text-xl font-semibold">
+              QR Code - {qrOutlet.outlet_name1 || `Outlet ${qrOutlet.outlet_id}`}
+            </h2>
+
+            <p className="mt-2 break-all text-sm text-gray-500">{qrUrl}</p>
+
+            <div className="my-6 flex justify-center">
+              <QRCodeCanvas
+                id="outlet-qr-code"
+                value={qrUrl}
+                size={240}
+                level="H"
+                includeMargin
+              />
+            </div>
+
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQrOutlet(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={downloadOutletQr}
+                className="rounded-lg bg-red-500 px-4 py-2 text-white"
+              >
+                Descarregar QR
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

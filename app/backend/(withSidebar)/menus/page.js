@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Editor from "@/components/editor/page.js";
 import Topbar from "@/components/layout/Topbar";
+import { QRCodeCanvas } from "qrcode.react";
+import { IoQrCode } from "react-icons/io5";
 
 export default function MenusPage() {
   const [menus, setMenus] = useState([]);
@@ -22,6 +24,8 @@ export default function MenusPage() {
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isSavingContent, setIsSavingContent] = useState(false);
   const [contentError, setContentError] = useState("");
+  const [qrMenu, setQrMenu] = useState(null);
+  const [qrUrl, setQrUrl] = useState("");
 
   const [form, setForm] = useState({
     menu_name1: "",
@@ -296,6 +300,34 @@ export default function MenusPage() {
     return cat?.outlet_name1 || "—";
   }
 
+  function openMenuQr(menu) {
+    const outlet = outlets.find(
+      (item) => Number(item.outlet_id) === Number(menu.outlet_id)
+    );
+    const params = new URLSearchParams();
+
+    if (outlet?.area_id != null) {
+      params.set("area_id", outlet.area_id);
+    }
+    if (menu.outlet_id != null) {
+      params.set("outlet_id", menu.outlet_id);
+    }
+    params.set("menu_id", menu.menu_id);
+
+    setQrMenu(menu);
+    setQrUrl(`${window.location.origin}/homepage?${params.toString()}`);
+  }
+
+  function downloadMenuQr() {
+    const canvas = document.getElementById("menu-qr-code");
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `menu-${qrMenu?.menu_id}-qrcode.png`;
+    link.click();
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -367,8 +399,17 @@ export default function MenusPage() {
 
                 <td className="p-4 flex gap-2 justify-end">
 
+                  <button
+                    type="button"
+                    onClick={() => openMenuQr(sub)}
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg"
+                  >
+                    <IoQrCode />
+                  </button>
+
                   {sub.has_submenus === false && (
                     <button
+                      type="button"
                       onClick={() => openContent(sub)}
                       className="px-3 py-1 bg-blue-500 text-white rounded-lg"
                     >
@@ -614,6 +655,45 @@ export default function MenusPage() {
 
           </div>
 
+        </div>
+      )}
+
+      {qrMenu && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
+            <h2 className="text-xl font-semibold">
+              QR Code - {qrMenu.menu_name1 || `Menu ${qrMenu.menu_id}`}
+            </h2>
+
+            <p className="mt-2 break-all text-sm text-gray-500">{qrUrl}</p>
+
+            <div className="my-6 flex justify-center">
+              <QRCodeCanvas
+                id="menu-qr-code"
+                value={qrUrl}
+                size={240}
+                level="H"
+                includeMargin
+              />
+            </div>
+
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQrMenu(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={downloadMenuQr}
+                className="rounded-lg bg-red-500 px-4 py-2 text-white"
+              >
+                Descarregar QR
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

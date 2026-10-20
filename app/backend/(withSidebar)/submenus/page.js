@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 import Editor from "@/components/editor/page.js";
+import { QRCodeCanvas } from "qrcode.react";
+import { IoQrCode } from "react-icons/io5";
 
 export default function SubmenusPage() {
   const [submenus, setSubmenus] = useState([]);
   const [menus, setMenus] = useState([]);
+  const [outlets, setOutlets] = useState([]);
   const [languages, setLanguages] = useState([]);
 
   const [search, setSearch] = useState("");
@@ -21,6 +24,8 @@ export default function SubmenusPage() {
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isSavingContent, setIsSavingContent] = useState(false);
   const [contentError, setContentError] = useState("");
+  const [qrSubmenu, setQrSubmenu] = useState(null);
+  const [qrUrl, setQrUrl] = useState("");
 
   const [form, setForm] = useState({
     submenu_name1: "",
@@ -50,6 +55,12 @@ export default function SubmenusPage() {
     setMenus(data);
   }
 
+  async function fetchOutlets() {
+    const res = await fetch("/api/outlets");
+    const data = await res.json();
+    setOutlets(data);
+  }
+
   async function fetchLanguages() {
     const res = await fetch("/api/languages");
     const data = await res.json();
@@ -61,6 +72,7 @@ export default function SubmenusPage() {
   useEffect(() => {
     fetchSubmenus();
     fetchMenus();
+    fetchOutlets();
     fetchLanguages();
   }, []);
 
@@ -286,6 +298,40 @@ export default function SubmenusPage() {
     return menu ? getMenuName(menu) : "-";
   }
 
+  function openSubmenuQr(submenu) {
+    const menu = menus.find(
+      (item) => Number(item.menu_id) === Number(submenu.menu_id)
+    );
+    const outlet = outlets.find(
+      (item) => Number(item.outlet_id) === Number(menu?.outlet_id)
+    );
+    const params = new URLSearchParams();
+
+    if (outlet?.area_id != null) {
+      params.set("area_id", outlet.area_id);
+    }
+    if (menu?.outlet_id != null) {
+      params.set("outlet_id", menu.outlet_id);
+    }
+    if (submenu.menu_id != null) {
+      params.set("menu_id", submenu.menu_id);
+    }
+    params.set("submenu_id", submenu.submenu_id);
+
+    setQrSubmenu(submenu);
+    setQrUrl(`${window.location.origin}/homepage?${params.toString()}`);
+  }
+
+  function downloadSubmenuQr() {
+    const canvas = document.getElementById("submenu-qr-code");
+    if (!(canvas instanceof HTMLCanvasElement)) return;
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `submenu-${qrSubmenu?.submenu_id}-qrcode.png`;
+    link.click();
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
 
@@ -356,6 +402,14 @@ export default function SubmenusPage() {
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => openSubmenuQr(submenu)}
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg"
+                  >
+                    <IoQrCode />
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => openContent(submenu)}
@@ -565,6 +619,45 @@ export default function SubmenusPage() {
                 }`}
               >
                 {isSavingContent ? "A guardar..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {qrSubmenu && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
+            <h2 className="text-xl font-semibold">
+              QR Code - {qrSubmenu.submenu_name1 || `Submenu ${qrSubmenu.submenu_id}`}
+            </h2>
+
+            <p className="mt-2 break-all text-sm text-gray-500">{qrUrl}</p>
+
+            <div className="my-6 flex justify-center">
+              <QRCodeCanvas
+                id="submenu-qr-code"
+                value={qrUrl}
+                size={240}
+                level="H"
+                includeMargin
+              />
+            </div>
+
+            <div className="flex justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setQrSubmenu(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2"
+              >
+                Fechar
+              </button>
+              <button
+                type="button"
+                onClick={downloadSubmenuQr}
+                className="rounded-lg bg-red-500 px-4 py-2 text-white"
+              >
+                Descarregar QR
               </button>
             </div>
           </div>

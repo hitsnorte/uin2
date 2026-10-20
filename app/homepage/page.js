@@ -28,6 +28,7 @@ export default function Homepage() {
   const [selectedArea, setSelectedArea] = useState(null);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [selectedMenu, setSelectedMenu] = useState(null);
+  const [selectedSubmenu, setSelectedSubmenu] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [showSignUpModal, setShowSignUpModal] = useState(false);
@@ -132,6 +133,7 @@ export default function Homepage() {
       setSelectedArea(null);
       setSelectedOutlet(null);
       setSelectedMenu(null);
+      setSelectedSubmenu(null);
       window.location.href = "/homepage";
 
     } catch (error) {
@@ -170,12 +172,44 @@ export default function Homepage() {
         throw new TypeError("As APIs de áreas, outlets, menus, submenus e idiomas devem devolver listas.");
       }
 
-      setAreas(areasData.filter((area) => area.visible));
-      setOutlets(outletsData.filter((outlet) => outlet.visible));
-      setMenus(menusData.filter((menu) => menu.visible));
-      setSubmenus(submenusData.filter((submenu) => submenu.visible));
+      const visibleAreas = areasData.filter((area) => area.visible);
+      const visibleOutlets = outletsData.filter((outlet) => outlet.visible);
+      const visibleMenus = menusData.filter((menu) => menu.visible);
+      const visibleSubmenus = submenusData.filter((submenu) => submenu.visible);
+
+      setAreas(visibleAreas);
+      setOutlets(visibleOutlets);
+      setMenus(visibleMenus);
+      setSubmenus(visibleSubmenus);
       setLanguages(langs.sort((a, b) => a.lang_order - b.lang_order));
       setPersonalize(pers || null);
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const requestedSubmenuId = Number(searchParams.get("submenu_id"));
+      const requestedMenuId = Number(searchParams.get("menu_id"));
+      const requestedOutletId = Number(searchParams.get("outlet_id"));
+      const requestedAreaId = Number(searchParams.get("area_id"));
+      const submenu = visibleSubmenus.find(
+        (item) => item.submenu_id === requestedSubmenuId
+      );
+      const menu = submenu
+        ? visibleMenus.find((item) => item.menu_id === submenu.menu_id)
+        : visibleMenus.find((item) => item.menu_id === requestedMenuId);
+      const outlet = menu
+        ? visibleOutlets.find((item) => item.outlet_id === menu.outlet_id)
+        : submenu
+          ? null
+          : visibleOutlets.find((item) => item.outlet_id === requestedOutletId);
+      const area = outlet
+        ? visibleAreas.find((item) => item.area_id === outlet.area_id)
+        : visibleAreas.find((item) => item.area_id === requestedAreaId);
+
+      setSelectedSubmenu(submenu?.submenu_id ?? null);
+      setSelectedMenu(menu?.menu_id ?? null);
+      setSelectedOutlet(outlet?.outlet_id ?? null);
+      setSelectedArea(area?.area_id ?? null);
+      setOpenArea(area?.area_id ?? null);
+      setMenuOpen(Boolean(area && !outlet) && pers?.page_model === 1);
     } catch (error) {
       console.error("Erro ao carregar os dados da homepage:", error);
     } finally {
@@ -371,8 +405,22 @@ export default function Homepage() {
     return menus.filter((menu) => Number(menu.outlet_id) === Number(outletId));
   }
 
-  function getMenuSubmenus(menuId) {
-    return submenus.filter((submenu) => Number(submenu.menu_id) === Number(menuId));
+   function getMenuSubmenus(menuId) {
+    const menuSubmenus = submenus.filter(
+      (submenu) => Number(submenu.menu_id) === Number(menuId)
+    );
+
+    return selectedSubmenu === null
+      ? menuSubmenus
+      : menuSubmenus.filter((submenu) => submenu.submenu_id === selectedSubmenu);
+  }
+
+  function openMenuContent(menu) {
+    router.push(`/homepage/outlet/menu-${menu.menu_id}`);
+  }
+
+  function openSubmenuContent(submenu) {
+    router.push(`/homepage/outlet/submenu-${submenu.submenu_id}`);
   }
 
   function openMenuContent(menu) {
@@ -825,6 +873,10 @@ export default function Homepage() {
           <button
             onClick={() => {
               if (selectedMenu !== null) {
+                if (selectedSubmenu !== null) {
+                  setSelectedSubmenu(null);
+                  return;
+                }
                 setSelectedMenu(null);
               } else if (selectedOutlet !== null) {
                 setSelectedOutlet(null);
@@ -952,14 +1004,17 @@ export default function Homepage() {
                           openMenuContent(item);
                         } else {
                           setSelectedMenu(item.menu_id);
+                        setSelectedSubmenu(null);
                         }
                       } else if (selectedArea !== null) {
                         setSelectedOutlet(item.outlet_id);
                         setSelectedMenu(null);
+                        setSelectedSubmenu(null);
                       } else {
                         setSelectedArea(item.area_id);
                         setSelectedOutlet(null);
                         setSelectedMenu(null);
+                        setSelectedSubmenu(null);
                       }
                     }}
                     className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer hover:scale-[1.02] transition overflow-hidden"
@@ -1078,11 +1133,15 @@ export default function Homepage() {
           onHomeClick={() => {
             setSelectedOutlet(null);
             setSelectedMenu(null);
+            setSelectedSubmenu(null);
+            setOpenArea(null);
+            setMenuOpen(false);
             window.location.href = "/homepage";
           }}
           onOutletClick={(outletId) => {
             setSelectedOutlet(outletId);
             setSelectedMenu(null);
+            setSelectedSubmenu(null);
           }}
           languages={languages}
           selectedLang={selectedLang}
@@ -1112,6 +1171,10 @@ export default function Homepage() {
               <button
                 type="button"
                 onClick={() => {
+                  if (selectedSubmenu !== null) {
+                    setSelectedSubmenu(null);
+                    return;
+                  }
                   if (selectedMenu !== null) {
                     setSelectedMenu(null);
                     return;
@@ -1152,7 +1215,8 @@ export default function Homepage() {
                                 openMenuContent(item);
                               } else {
                                 setSelectedMenu(item.menu_id);
-                              }
+                                setSelectedSubmenu(null);
+                            }
                             } else {
                               openSubmenuContent(item);
                             }
