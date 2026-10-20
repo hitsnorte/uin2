@@ -296,6 +296,11 @@ model Outlets {
   order                  Int?
   schedule_id            Int?
   schedule_visible       Boolean  @default(false)
+  associate_schedule    Boolean  @default(false)
+  access_points         Boolean  @default(false)
+  service_reservation   Boolean  @default(false)
+  takeaway_order        Boolean  @default(false)
+  instant_order         Boolean  @default(false)
   Menus                  Menus[]
   Areas                  Areas?   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
 

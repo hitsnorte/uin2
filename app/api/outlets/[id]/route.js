@@ -96,11 +96,11 @@ export async function PUT(req, context) {
         visible: body.visible ?? true,
         outlet_card_background: body.outlet_card_background || null,
         schedule_id: selectedScheduleId,
+        ...(body.schedule_visible !== undefined && {
+          schedule_visible: toBooleanFlag(body.schedule_visible),
+        }),
         ...(body.associate_schedule !== undefined && {
           associate_schedule: toBooleanFlag(body.associate_schedule),
-        }),
-        ...(body.hide_schedule !== undefined && {
-          hide_schedule: toBooleanFlag(body.hide_schedule),
         }),
         ...(body.access_points !== undefined && {
           access_points: toBooleanFlag(body.access_points),

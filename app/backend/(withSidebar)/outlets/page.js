@@ -49,8 +49,8 @@ export default function OutletsPage() {
     outlet_name5: "",
     area_id: "",
     schedule_id: "",
+    schedule_visible: false,
     associate_schedule: false,
-    hide_schedule: false,
     access_points: false,
     reservation: false,
     service_reservation: false,
@@ -119,8 +119,8 @@ export default function OutletsPage() {
       outlet_name5: "",
       area_id: "",
       schedule_id: "",
+      schedule_visible: false,
       associate_schedule: false,
-      hide_schedule: false,
       access_points: false,
       reservation: false,
       service_reservation: false,
@@ -150,8 +150,8 @@ export default function OutletsPage() {
       outlet_name5: outlet.outlet_name5 || "",
       area_id: outlet.area_id || "",
       schedule_id: outlet.schedule_id ? String(outlet.schedule_id) : "",
+      schedule_visible: outlet.schedule_visible ?? false,
       associate_schedule: outlet.associate_schedule ?? false,
-      hide_schedule: outlet.hide_schedule ?? false,
       access_points: outlet.access_points ?? false,
       reservation: outlet.reservation === 1 || outlet.reservation === "1",
       service_reservation: outlet.service_reservation ?? false,
@@ -261,7 +261,10 @@ export default function OutletsPage() {
           body: JSON.stringify(payload),
         });
 
-        if (!response.ok) throw new Error("Não foi possível criar o outlet.");
+        if (!response.ok) {
+          const result = await response.json().catch(() => null);
+          throw new Error(result?.error || "Não foi possível criar o outlet.");
+        }
       } else {
         const response = await fetch(`/api/outlets/${editingId}`, {
           method: "PUT",
@@ -271,7 +274,10 @@ export default function OutletsPage() {
           body: JSON.stringify(payload),
         });
 
-        if (!response.ok) throw new Error("Não foi possível guardar o outlet.");
+        if (!response.ok) {
+          const result = await response.json().catch(() => null);
+          throw new Error(result?.error || "Não foi possível guardar o outlet.");
+        }
       }
 
       setShowModal(false);
@@ -283,7 +289,7 @@ export default function OutletsPage() {
       fetchData();
     } catch (err) {
       console.error(err);
-      alert("Erro ao guardar outlet");
+      alert(err.message || "Erro ao guardar outlet");
     } finally {
       setIsSaving(false);
     }
@@ -603,26 +609,38 @@ export default function OutletsPage() {
                 </div>
 
                 {form.associate_schedule && (
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="general_schedule_id" className="text-xs text-gray-500 font-bold">
-                      Horário associado
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="general_schedule_id" className="text-xs text-gray-500 font-bold">
+                        Horário associado
+                      </label>
+                      <select
+                        id="general_schedule_id"
+                        name="schedule_id"
+                        value={form.schedule_id}
+                        onChange={handleChange}
+                        required={form.associate_schedule || form.reservation}
+                        className="h-10 border rounded-lg px-2"
+                      >
+                        <option value="">Selecionar horário</option>
+                        {schedules.map((schedule) => (
+                          <option key={schedule.schedule_id} value={schedule.schedule_id}>
+                            {getScheduleName(schedule)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        name="schedule_visible"
+                        checked={Boolean(form.schedule_visible)}
+                        onChange={handleSettingChange}
+                        className="h-4 w-4 accent-red-500"
+                      />
+                      Horário visível
                     </label>
-                    <select
-                      id="general_schedule_id"
-                      name="schedule_id"
-                      value={form.schedule_id}
-                      onChange={handleChange}
-                      required={form.associate_schedule || form.reservation}
-                      className="h-10 border rounded-lg px-2"
-                    >
-                      <option value="">Selecionar horário</option>
-                      {schedules.map((schedule) => (
-                        <option key={schedule.schedule_id} value={schedule.schedule_id}>
-                          {getScheduleName(schedule)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  </>
                 )}
 
                 <h3 className="text-sm text-gray-600 font-semibold">Configurações de Outlet</h3>
@@ -748,12 +766,12 @@ export default function OutletsPage() {
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input
                     type="checkbox"
-                    name="hide_schedule"
-                    checked={Boolean(form.hide_schedule)}
+                    name="schedule_visible"
+                    checked={Boolean(form.schedule_visible)}
                     onChange={handleSettingChange}
                     className="h-4 w-4 accent-red-500"
                   />
-                  Ocultar horário
+                  Horário visível
                 </label>
               </div>
             ) : (
