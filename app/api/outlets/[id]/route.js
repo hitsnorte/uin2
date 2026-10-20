@@ -12,6 +12,18 @@ export async function PUT(req, context) {
 
     const body = await req.json();
 
+    if (
+      typeof body.visible === "boolean" &&
+      Object.keys(body).every((key) => key === "visible")
+    ) {
+      const updated = await prisma.outlets.update({
+        where: { outlet_id: id },
+        data: { visible: body.visible },
+      });
+
+      return Response.json(updated);
+    }
+
     const updated = await prisma.outlets.update({
       where: {
         outlet_id: id,

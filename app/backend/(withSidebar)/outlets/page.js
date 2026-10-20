@@ -17,6 +17,7 @@ export default function OutletsPage() {
   const [editingId, setEditingId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [visibilityUpdatingId, setVisibilityUpdatingId] = useState(null);
 
   const [showContentModal, setShowContentModal] = useState(false);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
@@ -209,6 +210,32 @@ export default function OutletsPage() {
     }
   }
 
+  async function toggleVisible(outlet) {
+    try {
+      setVisibilityUpdatingId(outlet.outlet_id);
+
+      const response = await fetch(`/api/outlets/${outlet.outlet_id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ visible: outlet.visible === false }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao atualizar estado do outlet.");
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Erro ao atualizar estado do outlet.");
+    } finally {
+      setVisibilityUpdatingId(null);
+    }
+  }
+
   // ---------------- FILTER ----------------
 
   const filtered = outlets.filter((o) =>
@@ -300,6 +327,7 @@ export default function OutletsPage() {
 
               <th className="p-4">Area</th>
               <th className="p-4">Tipo</th>
+              <th className="p-4">Ativo</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -328,6 +356,27 @@ export default function OutletsPage() {
 
                 <td className="p-4">
                   {getTypeLabel(outlet.outlet_type)}
+                </td>
+
+                <td className="p-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleVisible(outlet)}
+                    disabled={visibilityUpdatingId === outlet.outlet_id}
+                    className={`px-3 py-1 rounded-lg text-white ${
+                      visibilityUpdatingId === outlet.outlet_id
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : outlet.visible === false
+                          ? "bg-gray-500 hover:bg-gray-600"
+                          : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    {visibilityUpdatingId === outlet.outlet_id
+                      ? "A atualizar..."
+                      : outlet.visible === false
+                        ? "Não"
+                        : "Sim"}
+                  </button>
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">
