@@ -19,6 +19,9 @@ export default function MenusPage() {
   const [showContentModal, setShowContentModal] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState(null);
   const [editorContent, setEditorContent] = useState(null);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isSavingContent, setIsSavingContent] = useState(false);
+  const [contentError, setContentError] = useState("");
 
   const [form, setForm] = useState({
     menu_name1: "",
@@ -111,31 +114,56 @@ export default function MenusPage() {
 
   async function openContent(sub) {
     setSelectedMenu(sub);
-
-    const res = await fetch(
-      `/api/info-subcategory?subcategory_id=${sub.subcategory_id}`
-    );
-
-    const data = await res.json();
-
-    setEditorContent(data?.content || null);
-
+    setEditorContent(null);
+    setContentError("");
     setShowContentModal(true);
+    setIsLoadingContent(true);
+
+    try {
+      const response = await fetch(`/api/menu-content?menu_id=${sub.menu_id}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao carregar conteúdo do menu.");
+      }
+
+      setEditorContent(data.content);
+    } catch (error) {
+      console.error(error);
+      setContentError(error.message || "Erro ao carregar conteúdo do menu.");
+    } finally {
+      setIsLoadingContent(false);
+    }
   }
 
   async function saveContent() {
-    await fetch("/api/info-subcategory", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        menu_id: selectedMenu.menu_id,
-        content: editorContent,
-      }),
-    });
+    if (!selectedMenu || isSavingContent) return;
 
-    setShowContentModal(false);
+    setIsSavingContent(true);
+    try {
+      const response = await fetch("/api/menu-content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          menu_id: selectedMenu.menu_id,
+          content: editorContent,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao guardar conteúdo do menu.");
+      }
+
+      setShowContentModal(false);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Erro ao guardar conteúdo do menu.");
+    } finally {
+      setIsSavingContent(false);
+    }
   }
 
   // ---------------- FORM ----------------
@@ -339,12 +367,14 @@ export default function MenusPage() {
 
                 <td className="p-4 flex gap-2 justify-end">
 
-                  <button
-                    onClick={() => openContent(sub)}
-                    className="px-3 py-1 bg-blue-500 text-white rounded-lg"
-                  >
-                    Conteúdo
-                  </button>
+                  {sub.has_submenus === false && (
+                    <button
+                      onClick={() => openContent(sub)}
+                      className="px-3 py-1 bg-blue-500 text-white rounded-lg"
+                    >
+                      Conteúdo
+                    </button>
+                  )}
 
                   <button
                     onClick={() => openEdit(sub)}
@@ -540,19 +570,27 @@ export default function MenusPage() {
           <div className="bg-white w-[90vw] h-[85vh] rounded-2xl p-6 flex flex-col">
 
             <h2 className="text-xl font-semibold mb-4">
-              Conteúdo - {selectedSub?.menu_name1}
+              Conteúdo - {selectedMenu?.menu_name1}
             </h2>
 
-            <div className="flex-1 overflow-hidden">
-              <Editor
-                value={editorContent}
-                onChange={setEditorContent}
-              />
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {isLoadingContent ? (
+                <div className="flex h-full items-center justify-center text-gray-500">
+                  A carregar conteúdo...
+                </div>
+              ) : contentError ? (
+                <div className="flex h-full items-center justify-center text-red-600">
+                  {contentError}
+                </div>
+              ) : (
+                <Editor value={editorContent} onChange={setEditorContent} />
+              )}
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
 
               <button
+                type="button"
                 onClick={() => setShowContentModal(false)}
                 className="px-4 py-2 bg-gray-200 rounded-lg"
               >
@@ -560,10 +598,16 @@ export default function MenusPage() {
               </button>
 
               <button
+                type="button"
                 onClick={saveContent}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg"
+                disabled={isLoadingContent || !!contentError || isSavingContent}
+                className={`px-4 py-2 rounded-lg ${
+                  isLoadingContent || contentError || isSavingContent
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-red-500 text-white"
+                }`}
               >
-                Guardar
+                {isSavingContent ? "A guardar..." : "Guardar"}
               </button>
 
             </div>
