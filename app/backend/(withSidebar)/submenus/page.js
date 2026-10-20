@@ -372,7 +372,7 @@ export default function SubmenusPage() {
                 </th>
               ))}
 
-              <th className="p-4">Visible</th>
+              <th className="p-4">Ativo</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -395,9 +395,13 @@ export default function SubmenusPage() {
                 <td className="p-4">
                   <button
                     onClick={() => toggleVisible(submenu)}
-                    className="px-3 py-1 rounded-lg"
+                    className={`px-3 py-1 rounded-lg text-white ${
+                      submenu.visible 
+                        ? "bg-green-500 hover:bg-green-700" 
+                        : "bg-red-600 hover:bg-red-700"
+                    }`}
                   >
-                    {submenu.visible ? "Visível" : "Oculto"}
+                    {submenu.visible ? "Sim" : "Não"}
                   </button>
                 </td>
 

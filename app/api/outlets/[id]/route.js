@@ -69,6 +69,18 @@ export async function PUT(req, context) {
       );
     }
 
+    if (
+      typeof body.visible === "boolean" &&
+      Object.keys(body).every((key) => key === "visible")
+    ) {
+      const updated = await prisma.outlets.update({
+        where: { outlet_id: id },
+        data: { visible: body.visible },
+      });
+
+      return Response.json(updated);
+    }
+
     const updated = await prisma.outlets.update({
       where: {
         outlet_id: id,

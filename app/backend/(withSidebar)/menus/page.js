@@ -17,6 +17,7 @@ export default function MenusPage() {
   const [editingId, setEditingId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [visibilityUpdatingId, setVisibilityUpdatingId] = useState(null);
 
   const [showContentModal, setShowContentModal] = useState(false);
   const [selectedMenu, setSelectedMenu] = useState(null);
@@ -282,6 +283,32 @@ export default function MenusPage() {
     }
   }
 
+  async function toggleVisible(menu) {
+    try {
+      setVisibilityUpdatingId(menu.menu_id);
+
+      const response = await fetch(`/api/menus/${menu.menu_id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ visible: menu.visible === false }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao atualizar estado do menu.");
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Erro ao atualizar estado do menu.");
+    } finally {
+      setVisibilityUpdatingId(null);
+    }
+  }
+
   // ---------------- FILTER ----------------
 
   const filtered = menus.filter((s) =>
@@ -371,6 +398,7 @@ export default function MenusPage() {
               ))}
 
               <th className="p-4">Outlet</th>
+              <th className="p-4">Ativo</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -395,6 +423,27 @@ export default function MenusPage() {
 
                 <td className="p-4">
                   {getOutletName(sub.outlet_id)}
+                </td>
+
+                <td className="p-4">
+                  <button
+                    type="button"
+                    onClick={() => toggleVisible(sub)}
+                    disabled={visibilityUpdatingId === sub.menu_id}
+                    className={`px-3 py-1 rounded-lg text-white ${
+                      visibilityUpdatingId === sub.menu_id
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : sub.visible === false
+                          ? "bg-gray-500 hover:bg-gray-600"
+                          : "bg-green-600 hover:bg-green-700"
+                    }`}
+                  >
+                    {visibilityUpdatingId === sub.menu_id
+                      ? "A atualizar..."
+                      : sub.visible === false
+                        ? "Não"
+                        : "Sim"}
+                  </button>
                 </td>
 
                 <td className="p-4 flex gap-2 justify-end">

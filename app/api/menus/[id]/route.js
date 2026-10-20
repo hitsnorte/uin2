@@ -10,6 +10,19 @@ export async function PUT(req, context) {
     }
 
     const body = await req.json();
+
+    if (
+      typeof body.visible === "boolean" &&
+      Object.keys(body).every((key) => key === "visible")
+    ) {
+      const updated = await prisma.menus.update({
+        where: { menu_id: id },
+        data: { visible: body.visible },
+      });
+
+      return Response.json(updated);
+    }
+
     const outletId = Number(body.outlet_id);
 
     if (!Number.isInteger(outletId) || outletId <= 0) {
