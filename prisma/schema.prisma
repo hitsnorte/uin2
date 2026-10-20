@@ -13,16 +13,19 @@ model AccessPointGroups {
   schedule_id             Int?
   max_capacity            Int?
   allows_reservations     Boolean @default(false)
+  outlet_id               Int?
 }
 
 model AccessPoints {
   access_point_id           Int      @id @default(autoincrement())
   access_point_sub_group_id Int?
+  access_point_group_id     Int?
   access_point_name         String?  @db.VarChar(150)
   products                  Json?
   product_cat               Json?
   activities                Json?
   active                    Boolean? @default(true)
+  outlet_id                 Int?
 }
 
 model EmailSettings {
@@ -296,11 +299,11 @@ model Outlets {
   order                  Int?
   schedule_id            Int?
   schedule_visible       Boolean  @default(false)
-  associate_schedule    Boolean  @default(false)
-  access_points         Boolean  @default(false)
-  service_reservation   Boolean  @default(false)
-  takeaway_order        Boolean  @default(false)
-  instant_order         Boolean  @default(false)
+  access_points          Boolean  @default(false)
+  associate_schedule     Boolean  @default(false)
+  instant_order          Boolean  @default(false)
+  service_reservation    Boolean  @default(false)
+  takeaway_order         Boolean  @default(false)
   Menus                  Menus[]
   Areas                  Areas?   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
 

@@ -31,6 +31,10 @@ export default function OutletsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("general");
+  const [accessRooms, setAccessRooms] = useState([]);
+  const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
+  const [isEditingRoomName, setIsEditingRoomName] = useState(false);
+  const [accessPointName, setAccessPointName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState(null);
@@ -130,6 +134,10 @@ export default function OutletsPage() {
     });
 
     setActiveTab("general");
+    setAccessRooms([{ id: null, name: "Sala 1", points: [] }]);
+    setSelectedRoomIndex(0);
+    setIsEditingRoomName(false);
+    setAccessPointName("");
     setImageFile(null);
     setImagePreview(null);
     setExistingImage(null);
@@ -139,7 +147,7 @@ export default function OutletsPage() {
 
   // ---------------- EDIT ----------------
 
-  function openEdit(outlet) {
+  async function openEdit(outlet) {
     setEditingId(outlet.outlet_id);
 
     setForm({
@@ -161,6 +169,10 @@ export default function OutletsPage() {
     });
 
     setActiveTab("general");
+    setAccessRooms([{ id: null, name: "Sala 1", points: [] }]);
+    setSelectedRoomIndex(0);
+    setIsEditingRoomName(false);
+    setAccessPointName("");
     setImageFile(null);
 
     setImagePreview(outlet.outlet_image || null);
@@ -168,6 +180,30 @@ export default function OutletsPage() {
     setExistingImage(outlet.outlet_image || null);
 
     setShowModal(true);
+
+    try {
+      const response = await fetch(`/api/outlets/${outlet.outlet_id}/access-points`);
+      if (!response.ok) {
+        throw new Error("Não foi possível carregar os pontos de acesso.");
+      }
+
+      const layout = await response.json();
+      if (layout.rooms?.length) {
+        setAccessRooms(
+          layout.rooms.map((room) => ({
+            id: room.group.access_point_group_id,
+            name: room.group.access_point_group_name || "Sala",
+            points: room.points.map((point) => ({
+              id: point.access_point_id,
+              name: point.access_point_name || "",
+            })),
+          }))
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    }
   }
 
   // ---------------- FORM ----------------
@@ -194,6 +230,39 @@ export default function OutletsPage() {
     if (name === "access_points" && !checked) {
       setActiveTab("general");
     }
+  }
+
+  function addAccessPoint() {
+    const name = accessPointName.trim();
+    if (!name) return;
+
+    setAccessRooms((currentRooms) =>
+      currentRooms.map((room, index) =>
+        index === selectedRoomIndex
+          ? { ...room, points: [...room.points, { id: null, name }] }
+          : room
+      )
+    );
+    setAccessPointName("");
+  }
+
+  function addSpatialArea() {
+    const nextIndex = accessRooms.length + 1;
+    setAccessRooms((currentRooms) => [
+      ...currentRooms,
+      { id: null, name: `Sala ${nextIndex}`, points: [] },
+    ]);
+    setSelectedRoomIndex(accessRooms.length);
+    setIsEditingRoomName(false);
+    setAccessPointName("");
+  }
+
+  function updateSelectedRoom(updater) {
+    setAccessRooms((currentRooms) =>
+      currentRooms.map((room, index) =>
+        index === selectedRoomIndex ? updater(room) : room
+      )
+    );
   }
 
   // ---------------- IMAGE UPLOAD ----------------
@@ -252,6 +321,8 @@ export default function OutletsPage() {
         outlet_card_background: imageUrl,
       };
 
+      let savedOutletId = editingId;
+
       if (!editingId) {
         const response = await fetch("/api/outlets", {
           method: "POST",
@@ -265,6 +336,8 @@ export default function OutletsPage() {
           const result = await response.json().catch(() => null);
           throw new Error(result?.error || "Não foi possível criar o outlet.");
         }
+        const createdOutlet = await response.json();
+        savedOutletId = createdOutlet.outlet_id;
       } else {
         const response = await fetch(`/api/outlets/${editingId}`, {
           method: "PUT",
@@ -277,6 +350,26 @@ export default function OutletsPage() {
         if (!response.ok) {
           const result = await response.json().catch(() => null);
           throw new Error(result?.error || "Não foi possível guardar o outlet.");
+        }
+      }
+
+      if (form.access_points) {
+        const accessPointsResponse = await fetch(
+          `/api/outlets/${savedOutletId}/access-points`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              rooms: accessRooms,
+            }),
+          }
+        );
+
+        if (!accessPointsResponse.ok) {
+          const result = await accessPointsResponse.json().catch(() => null);
+          throw new Error(
+            result?.error || "Não foi possível guardar os pontos de acesso."
+          );
         }
       }
 
@@ -386,6 +479,12 @@ export default function OutletsPage() {
     link.download = `outlet-${qrOutlet?.outlet_id}-qrcode.png`;
     link.click();
   }
+
+  const selectedAccessRoom = accessRooms[selectedRoomIndex] || {
+    id: null,
+    name: `Sala ${selectedRoomIndex + 1}`,
+    points: [],
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -775,8 +874,136 @@ export default function OutletsPage() {
                 </label>
               </div>
             ) : (
-              <div role="tabpanel" className="rounded-lg border bg-gray-50 p-4 text-sm text-gray-600">
-                Configurações de pontos de acesso.
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm text-gray-600 font-semibold">Configurações de pontos de acesso</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  {accessRooms.map((room, index) => (
+                    <button
+                      key={room.id ?? `new-room-${index}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedRoomIndex(index);
+                        setIsEditingRoomName(false);
+                        setAccessPointName("");
+                      }}
+                      aria-pressed={selectedRoomIndex === index}
+                      className={`rounded-lg border px-3 py-2 text-sm ${
+                        selectedRoomIndex === index
+                          ? "border-red-500 bg-red-50 font-semibold text-red-600"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {room.name || `Sala ${index + 1}`}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addSpatialArea}
+                    className="rounded-lg border border-dashed border-gray-400 px-3 py-2 text-sm text-gray-600 hover:border-red-500 hover:text-red-600"
+                  >
+                    + Adicionar área espacial
+                  </button>
+                </div>
+                <div className="rounded-xl border border-gray-300 bg-slate-50 p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    {isEditingRoomName ? (
+                      <input
+                        value={selectedAccessRoom.name}
+                        onChange={(event) =>
+                          updateSelectedRoom((room) => ({
+                            ...room,
+                            name: event.target.value,
+                          }))
+                        }
+                        onBlur={() => setIsEditingRoomName(false)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            setIsEditingRoomName(false);
+                          }
+                        }}
+                        autoFocus
+                        maxLength={150}
+                        aria-label="Nome da sala"
+                        className="h-9 rounded-lg border px-3 font-semibold"
+                      />
+                    ) : (
+                      <h4 className="font-semibold text-gray-800">
+                        {selectedAccessRoom.name || `Sala ${selectedRoomIndex + 1}`}
+                      </h4>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingRoomName((editing) => !editing)}
+                      aria-label="Editar nome da sala"
+                      title="Editar nome da sala"
+                      className="rounded-lg p-2 text-gray-600 hover:bg-white hover:text-red-600"
+                    >
+                      ✎
+                    </button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      value={accessPointName}
+                      onChange={(event) => setAccessPointName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addAccessPoint();
+                        }
+                      }}
+                      placeholder="Nome do ponto de acesso"
+                      maxLength={150}
+                      className="h-10 min-w-0 flex-1 rounded-lg border bg-white px-3"
+                    />
+                    <button
+                      type="button"
+                      onClick={addAccessPoint}
+                      disabled={!accessPointName.trim()}
+                      className="rounded-lg bg-red-500 px-4 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      + Adicionar ponto
+                    </button>
+                  </div>
+
+                  <div className="mt-4 min-h-48 overflow-hidden rounded-lg border border-slate-300 bg-white">
+                    {selectedAccessRoom.points.length ? (
+                      <ul className="divide-y divide-slate-200">
+                        {selectedAccessRoom.points.map((point, index) => (
+                          <li
+                            key={point.id ?? `new-${index}`}
+                            className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span aria-hidden="true" className="text-red-500">●</span>
+                              {point.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateSelectedRoom((room) => ({
+                                  ...room,
+                                  points: room.points.filter(
+                                    (_, pointIndex) => pointIndex !== index
+                                  ),
+                                }))
+                              }
+                              aria-label={`Remover ${point.name}`}
+                              className="ml-1 text-gray-400 hover:text-red-600"
+                            >
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="flex min-h-40 items-center justify-center text-sm text-gray-400">
+                        Adicione pontos de acesso a esta sala.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
