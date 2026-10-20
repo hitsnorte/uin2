@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
+import Editor from "@/components/editor/page.js";
 
 export default function SubmenusPage() {
   const [submenus, setSubmenus] = useState([]);
@@ -14,6 +15,12 @@ export default function SubmenusPage() {
   const [editingId, setEditingId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [showContentModal, setShowContentModal] = useState(false);
+  const [selectedSubmenu, setSelectedSubmenu] = useState(null);
+  const [editorContent, setEditorContent] = useState(null);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isSavingContent, setIsSavingContent] = useState(false);
+  const [contentError, setContentError] = useState("");
 
   const [form, setForm] = useState({
     submenu_name1: "",
@@ -95,6 +102,62 @@ export default function SubmenusPage() {
     setExistingImage(submenu.submenu_card_background || null);
 
     setShowModal(true);
+  }
+
+  async function openContent(submenu) {
+    setSelectedSubmenu(submenu);
+    setEditorContent(null);
+    setContentError("");
+    setShowContentModal(true);
+    setIsLoadingContent(true);
+
+    try {
+      const response = await fetch(
+        `/api/submenu-content?submenu_id=${submenu.submenu_id}`
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao carregar conteúdo do submenu.");
+      }
+
+      setEditorContent(data.content);
+    } catch (error) {
+      console.error(error);
+      setContentError(error.message || "Erro ao carregar conteúdo do submenu.");
+    } finally {
+      setIsLoadingContent(false);
+    }
+  }
+
+  async function saveContent() {
+    if (!selectedSubmenu || isSavingContent) return;
+
+    setIsSavingContent(true);
+    try {
+      const response = await fetch("/api/submenu-content", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          submenu_id: selectedSubmenu.submenu_id,
+          content: editorContent,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao guardar conteúdo do submenu.");
+      }
+
+      setShowContentModal(false);
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Erro ao guardar conteúdo do submenu.");
+    } finally {
+      setIsSavingContent(false);
+    }
   }
 
   function handleChange(e) {
@@ -294,6 +357,14 @@ export default function SubmenusPage() {
 
                 <td className="p-4 flex gap-2 justify-end">
                   <button
+                    type="button"
+                    onClick={() => openContent(submenu)}
+                    className="px-3 py-1 bg-blue-500 text-white rounded-lg"
+                  >
+                    Conteúdo
+                  </button>
+
+                  <button
                     onClick={() => openEdit(submenu)}
                     className="px-3 py-1 bg-gray-200 rounded-lg"
                   >
@@ -449,6 +520,54 @@ export default function SubmenusPage() {
 
           </form>
 
+        </div>
+      )}
+
+      {/* CONTENT MODAL */}
+      {showContentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white w-[90vw] h-[85vh] rounded-2xl p-6 flex flex-col">
+            <h2 className="text-xl font-semibold mb-4">
+              Conteúdo - {selectedSubmenu?.submenu_name1}
+            </h2>
+
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {isLoadingContent ? (
+                <div className="flex h-full items-center justify-center text-gray-500">
+                  A carregar conteúdo...
+                </div>
+              ) : contentError ? (
+                <div className="flex h-full items-center justify-center text-red-600">
+                  {contentError}
+                </div>
+              ) : (
+                <Editor value={editorContent} onChange={setEditorContent} />
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowContentModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-lg"
+              >
+                Fechar
+              </button>
+
+              <button
+                type="button"
+                onClick={saveContent}
+                disabled={isLoadingContent || !!contentError || isSavingContent}
+                className={`px-4 py-2 rounded-lg ${
+                  isLoadingContent || contentError || isSavingContent
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-red-500 text-white"
+                }`}
+              >
+                {isSavingContent ? "A guardar..." : "Guardar"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
