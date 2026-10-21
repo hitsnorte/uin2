@@ -623,8 +623,9 @@ export default function OutletsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white p-6 rounded-2xl w-[450px] max-h-[90vh] overflow-y-auto flex flex-col gap-3"
+            className="bg-white rounded-2xl w-[450px] max-h-[90vh] overflow-hidden flex flex-col"
           >
+            <div className="min-h-0 overflow-y-auto p-6 flex flex-col gap-3">
 
             <h2 className="text-lg font-semibold">
               {editingId ? "Editar" : "Criar"} Outlet
@@ -1007,7 +1008,9 @@ export default function OutletsPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 mt-2">
+            </div>
+
+            <div className="flex justify-end gap-2 shrink-0 px-6 pb-6">
 
               <button
                 type="button"
