@@ -218,10 +218,54 @@ export default function OutletsPage() {
   function handleSettingChange(e) {
     const { name, checked } = e.target;
 
-    setForm((currentForm) => ({
-      ...currentForm,
-      [name]: checked,
-    }));
+    setForm((currentForm) => {
+      const requiresAccessPoints =
+        currentForm.reservation ||
+        currentForm.service_reservation ||
+        currentForm.order ||
+        currentForm.instant_order;
+
+      if (name === "access_points" && !checked && requiresAccessPoints) {
+        return currentForm;
+      }
+
+      const nextForm = {
+        ...currentForm,
+        [name]: checked,
+      };
+
+      if (checked) {
+        if (name === "reservation") {
+          nextForm.service_reservation = false;
+          nextForm.instant_order = false;
+        } else if (name === "service_reservation") {
+          nextForm.reservation = false;
+          nextForm.instant_order = false;
+          nextForm.takeaway_order = false;
+        } else if (name === "instant_order") {
+          nextForm.reservation = false;
+          nextForm.service_reservation = false;
+          nextForm.takeaway_order = false;
+          nextForm.order = false;
+        } else if (name === "takeaway_order" || name === "order") {
+          nextForm.instant_order = false;
+          if (name === "takeaway_order") {
+            nextForm.service_reservation = false;
+          }
+        }
+
+        if (
+          name === "reservation" ||
+          name === "service_reservation" ||
+          name === "order" ||
+          name === "instant_order"
+        ) {
+          nextForm.access_points = true;
+        }
+      }
+
+      return nextForm;
+    });
 
     if (name === "reservation" && !checked) {
       setActiveTab("general");
@@ -291,6 +335,30 @@ export default function OutletsPage() {
   async function handleSubmit(e) {
     e.preventDefault();
 
+    if (form.reservation && form.service_reservation) {
+      alert("A reserva de mesa e a reserva de serviços não podem estar ativas ao mesmo tempo.");
+      setActiveTab("general");
+      return;
+    }
+
+    if (form.service_reservation && form.takeaway_order) {
+      alert("A reserva de serviços e as encomendas não podem estar ativas ao mesmo tempo.");
+      setActiveTab("general");
+      return;
+    }
+
+    if (
+      form.instant_order &&
+      (form.reservation ||
+        form.service_reservation ||
+        form.takeaway_order ||
+        form.order)
+    ) {
+      alert("Os pedidos instantâneos não podem estar ativos com reservas, encomendas ou pedidos no outlet.");
+      setActiveTab("general");
+      return;
+    }
+
     if (!form.area_id) {
       alert("Selecionar área");
       setActiveTab("general");
@@ -298,8 +366,30 @@ export default function OutletsPage() {
     }
 
     if ((form.reservation || form.associate_schedule) && !form.schedule_id) {
-      alert("Selecione um horário para o outlet.");
+      alert(
+        form.reservation
+          ? "Selecione um horário para a reserva de mesa."
+          : "Selecione um horário associado ao outlet."
+      );
       setActiveTab(form.reservation ? "tableReservation" : "general");
+      return;
+    }
+
+    const requiresAccessPoints =
+      form.reservation ||
+      form.service_reservation ||
+      form.order ||
+      form.instant_order;
+    const hasAssociatedAccessPoints = accessRooms.some((room) =>
+      room.points.some((point) => point.name.trim())
+    );
+
+    if (
+      requiresAccessPoints &&
+      (!form.access_points || !hasAssociatedAccessPoints)
+    ) {
+      alert("Configure pelo menos um ponto de acesso para as opções selecionadas.");
+      setActiveTab(form.access_points ? "accessPoints" : "general");
       return;
     }
 
@@ -761,6 +851,14 @@ export default function OutletsPage() {
                         name={name}
                         checked={Boolean(form[name])}
                         onChange={handleSettingChange}
+                        disabled={
+                          name === "access_points" &&
+                          form.access_points &&
+                          (form.reservation ||
+                            form.service_reservation ||
+                            form.order ||
+                            form.instant_order)
+                        }
                         className="h-4 w-4 accent-red-500"
                       />
                       {label}

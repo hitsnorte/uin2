@@ -19,13 +19,13 @@ model AccessPointGroups {
 model AccessPoints {
   access_point_id           Int      @id @default(autoincrement())
   access_point_sub_group_id Int?
-  access_point_group_id     Int?
   access_point_name         String?  @db.VarChar(150)
   products                  Json?
   product_cat               Json?
   activities                Json?
   active                    Boolean? @default(true)
   outlet_id                 Int?
+  access_point_group_id     Int?
 }
 
 model EmailSettings {
@@ -295,7 +295,6 @@ model Outlets {
   outlet_icon            String?  @db.VarChar(255)
   outlet_card_background String?  @db.VarChar(255)
   reservation            Int?
-  roomservice            Int?
   order                  Int?
   schedule_id            Int?
   schedule_visible       Boolean  @default(false)
