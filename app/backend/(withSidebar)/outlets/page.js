@@ -44,6 +44,9 @@ export default function OutletsPage() {
   const [editorContent, setEditorContent] = useState(null);
   const [qrOutlet, setQrOutlet] = useState(null);
   const [qrUrl, setQrUrl] = useState("");
+  const [qrAccessPoints, setQrAccessPoints] = useState([]);
+  const [qrAccessPointId, setQrAccessPointId] = useState("");
+  const [isLoadingQrAccessPoints, setIsLoadingQrAccessPoints] = useState(false);
 
   const [form, setForm] = useState({
     outlet_name1: "",
@@ -549,15 +552,54 @@ export default function OutletsPage() {
     return "-";
   }
 
-  function openOutletQr(outlet) {
+  function buildOutletQrUrl(outlet, accessPointId = "") {
     const params = new URLSearchParams();
     if (outlet.area_id != null) {
       params.set("area_id", outlet.area_id);
     }
     params.set("outlet_id", outlet.outlet_id);
+    if (accessPointId) {
+      params.set("access_point_id", accessPointId);
+    }
 
+    return `${window.location.origin}/homepage?${params.toString()}`;
+  }
+
+  async function openOutletQr(outlet) {
     setQrOutlet(outlet);
-    setQrUrl(`${window.location.origin}/homepage?${params.toString()}`);
+    setQrAccessPoints([]);
+    setQrAccessPointId("");
+    setQrUrl(buildOutletQrUrl(outlet));
+    setIsLoadingQrAccessPoints(true);
+
+    try {
+      const response = await fetch(
+        `/api/outlets/${outlet.outlet_id}/access-points`
+      );
+      if (!response.ok) {
+        throw new Error("Não foi possível carregar os pontos de acesso.");
+      }
+
+      const layout = await response.json();
+      const points = Array.isArray(layout.rooms)
+        ? layout.rooms.flatMap((room) =>
+            (Array.isArray(room.points) ? room.points : [])
+              .filter((point) => point.access_point_id != null)
+              .map((point) => ({
+                id: point.access_point_id,
+                name: point.access_point_name || `Ponto ${point.access_point_id}`,
+                roomName: room.group?.access_point_group_name || "Área",
+              }))
+          )
+        : [];
+
+      setQrAccessPoints(points);
+    } catch (error) {
+      console.error(error);
+      alert(error.message);
+    } finally {
+      setIsLoadingQrAccessPoints(false);
+    }
   }
 
   function downloadOutletQr() {
@@ -566,7 +608,10 @@ export default function OutletsPage() {
 
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
-    link.download = `outlet-${qrOutlet?.outlet_id}-qrcode.png`;
+    const pointSuffix = qrAccessPointId
+      ? `-access-point-${qrAccessPointId}`
+      : "";
+    link.download = `outlet-${qrOutlet?.outlet_id}${pointSuffix}-qrcode.png`;
     link.click();
   }
 
@@ -1180,6 +1225,37 @@ export default function OutletsPage() {
             <h2 className="text-xl font-semibold">
               QR Code - {qrOutlet.outlet_name1 || `Outlet ${qrOutlet.outlet_id}`}
             </h2>
+
+            <div className="mt-4 text-left">
+              <label
+                htmlFor="outlet-qr-access-point"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Ponto de acesso (opcional)
+              </label>
+              <select
+                id="outlet-qr-access-point"
+                value={qrAccessPointId}
+                onChange={(event) => {
+                  const accessPointId = event.target.value;
+                  setQrAccessPointId(accessPointId);
+                  setQrUrl(buildOutletQrUrl(qrOutlet, accessPointId));
+                }}
+                disabled={isLoadingQrAccessPoints}
+                className="h-10 w-full rounded-lg border px-3 disabled:bg-gray-100"
+              >
+                <option value="">
+                  {isLoadingQrAccessPoints
+                    ? "A carregar pontos de acesso..."
+                    : "QR Code geral"}
+                </option>
+                {qrAccessPoints.map((point) => (
+                  <option key={point.id} value={point.id}>
+                    {point.roomName} - {point.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <p className="mt-2 break-all text-sm text-gray-500">{qrUrl}</p>
 

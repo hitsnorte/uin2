@@ -13,6 +13,17 @@ import FrontendHeader from "@/components/layout/frontend/header";
 
 import { useTranslations } from "@/app/hooks/useTranslations";
 
+function isActive(value) {
+  return value === true || value === 1 || value === "1";
+}
+
+function getRequestedId(searchParams, key) {
+  if (!searchParams.has(key)) return null;
+
+  const value = Number(searchParams.get(key));
+  return Number.isInteger(value) && value > 0 ? value : NaN;
+}
+
 export default function Homepage() {
   const router = useRouter();
   const [areas, setAreas] = useState([]);
@@ -172,10 +183,10 @@ export default function Homepage() {
         throw new TypeError("As APIs de áreas, outlets, menus, submenus e idiomas devem devolver listas.");
       }
 
-      const visibleAreas = areasData.filter((area) => area.visible);
-      const visibleOutlets = outletsData.filter((outlet) => outlet.visible);
-      const visibleMenus = menusData.filter((menu) => menu.visible);
-      const visibleSubmenus = submenusData.filter((submenu) => submenu.visible);
+      const visibleAreas = areasData.filter((area) => isActive(area.visible));
+      const visibleOutlets = outletsData.filter((outlet) => isActive(outlet.visible));
+      const visibleMenus = menusData.filter((menu) => isActive(menu.visible));
+      const visibleSubmenus = submenusData.filter((submenu) => isActive(submenu.visible));
 
       setAreas(visibleAreas);
       setOutlets(visibleOutlets);
@@ -185,24 +196,125 @@ export default function Homepage() {
       setPersonalize(pers || null);
 
       const searchParams = new URLSearchParams(window.location.search);
-      const requestedSubmenuId = Number(searchParams.get("submenu_id"));
-      const requestedMenuId = Number(searchParams.get("menu_id"));
-      const requestedOutletId = Number(searchParams.get("outlet_id"));
-      const requestedAreaId = Number(searchParams.get("area_id"));
-      const submenu = visibleSubmenus.find(
-        (item) => item.submenu_id === requestedSubmenuId
-      );
-      const menu = submenu
-        ? visibleMenus.find((item) => item.menu_id === submenu.menu_id)
-        : visibleMenus.find((item) => item.menu_id === requestedMenuId);
-      const outlet = menu
-        ? visibleOutlets.find((item) => item.outlet_id === menu.outlet_id)
-        : submenu
-          ? null
-          : visibleOutlets.find((item) => item.outlet_id === requestedOutletId);
-      const area = outlet
-        ? visibleAreas.find((item) => item.area_id === outlet.area_id)
-        : visibleAreas.find((item) => item.area_id === requestedAreaId);
+      const requestedAreaId = getRequestedId(searchParams, "area_id");
+      const requestedOutletId = getRequestedId(searchParams, "outlet_id");
+      const requestedMenuId = getRequestedId(searchParams, "menu_id");
+      const requestedSubmenuId = getRequestedId(searchParams, "submenu_id");
+      const requestedAccessPointId = getRequestedId(searchParams, "access_point_id");
+      const hasNavigationParams = [
+        "area_id",
+        "outlet_id",
+        "menu_id",
+        "submenu_id",
+        "access_point_id",
+      ].some((key) => searchParams.has(key));
+
+      const isInvalidId = [
+        requestedAreaId,
+        requestedOutletId,
+        requestedMenuId,
+        requestedSubmenuId,
+        requestedAccessPointId,
+      ].some((id) => Number.isNaN(id));
+      const requestedSubmenu = requestedSubmenuId
+        ? visibleSubmenus.find(
+            (item) => Number(item.submenu_id) === requestedSubmenuId
+          )
+        : null;
+      const requestedMenu = requestedMenuId
+        ? visibleMenus.find((item) => Number(item.menu_id) === requestedMenuId)
+        : requestedSubmenu
+          ? visibleMenus.find(
+              (item) => Number(item.menu_id) === Number(requestedSubmenu.menu_id)
+            )
+          : null;
+      const requestedOutlet = requestedOutletId
+        ? visibleOutlets.find(
+            (item) => Number(item.outlet_id) === requestedOutletId
+          )
+        : requestedMenu
+          ? visibleOutlets.find(
+              (item) => Number(item.outlet_id) === Number(requestedMenu.outlet_id)
+            )
+          : null;
+      const requestedArea = requestedAreaId
+        ? visibleAreas.find((item) => Number(item.area_id) === requestedAreaId)
+        : requestedOutlet
+          ? visibleAreas.find(
+              (item) => Number(item.area_id) === Number(requestedOutlet.area_id)
+            )
+          : null;
+
+      let hasValidPath =
+        !isInvalidId &&
+        (!searchParams.has("area_id") || Boolean(requestedArea)) &&
+        (!searchParams.has("outlet_id") || Boolean(requestedOutlet)) &&
+        (!searchParams.has("menu_id") || Boolean(requestedMenu)) &&
+        (!searchParams.has("submenu_id") || Boolean(requestedSubmenu)) &&
+        (!searchParams.has("access_point_id") || Boolean(requestedAccessPointId));
+
+      if (hasValidPath && requestedOutlet) {
+        hasValidPath = Boolean(requestedArea);
+      }
+
+      if (hasValidPath && requestedMenu) {
+        hasValidPath =
+          Number(requestedMenu.outlet_id) === Number(requestedOutlet?.outlet_id) &&
+          Boolean(requestedArea);
+      }
+
+      if (hasValidPath && requestedSubmenu) {
+        hasValidPath =
+          Number(requestedSubmenu.menu_id) === Number(requestedMenu?.menu_id) &&
+          isActive(requestedMenu?.has_submenus);
+      }
+
+      if (hasValidPath && requestedArea && requestedOutlet) {
+        hasValidPath =
+          Number(requestedOutlet.area_id) === Number(requestedArea.area_id);
+      }
+
+      if (hasValidPath && requestedAccessPointId) {
+        if (!requestedOutlet) {
+          hasValidPath = false;
+        } else {
+          const accessPointsResponse = await fetch(
+            `/api/outlets/${requestedOutlet.outlet_id}/access-points`
+          );
+          if (!accessPointsResponse.ok) {
+            throw new Error(
+              `Falha ao validar o ponto de acesso: ${accessPointsResponse.status}`
+            );
+          }
+
+          const accessPointLayout = await accessPointsResponse.json();
+          hasValidPath = Array.isArray(accessPointLayout.rooms) &&
+            accessPointLayout.rooms.some((room) =>
+              Array.isArray(room.points) &&
+              room.points.some(
+                (point) =>
+                  Number(point.access_point_id) === requestedAccessPointId &&
+                  isActive(point.active)
+              )
+            );
+        }
+      }
+
+      if (hasNavigationParams && !hasValidPath) {
+        setSelectedSubmenu(null);
+        setSelectedMenu(null);
+        setSelectedOutlet(null);
+        setSelectedArea(null);
+        setOpenArea(null);
+        setMenuOpen(false);
+        router.replace("/homepage");
+        return;
+      }
+
+      const submenu = requestedSubmenu;
+      const menu = requestedMenu;
+      const outlet = requestedOutlet;
+      const area = requestedArea;
 
       setSelectedSubmenu(submenu?.submenu_id ?? null);
       setSelectedMenu(menu?.menu_id ?? null);
