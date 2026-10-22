@@ -10,6 +10,7 @@ export default function FrontendHeader({
   title,
   areas = [],
   outlets = [],
+  outletScheduleLabels = {},
   personalize = {},
   menuOpen,
   setMenuOpen,
@@ -241,7 +242,12 @@ export default function FrontendHeader({
                               color: personalize?.foreground_color || "#111",
                             }}
                           >
-                            {getName(outlet, "outlet_name")}
+                            <span>{getName(outlet, "outlet_name")}</span>
+                            {outletScheduleLabels[outlet.outlet_id] && (
+                              <span className="mt-0.5 block text-[0.7rem] opacity-75">
+                                {outletScheduleLabels[outlet.outlet_id]}
+                              </span>
+                            )}
                           </div>
                         ))}
                     </div>

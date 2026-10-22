@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TbClockHour3 } from "react-icons/tb";
 import { FiMenu } from "react-icons/fi";
 import "./loading.css";
 import { IoIosLogOut } from "react-icons/io";
@@ -24,12 +25,36 @@ function getRequestedId(searchParams, key) {
   return Number.isInteger(value) && value > 0 ? value : NaN;
 }
 
+function getTodayScheduleLabel(schedule) {
+  if (!schedule || !schedule.days) return null;
+
+  const dayKeys = [
+    "domingo",
+    "segunda",
+    "terca",
+    "quarta",
+    "quinta",
+    "sexta",
+    "sabado",
+  ];
+  const dayIndex = new Date().getDay();
+  const dayTimes = schedule.days[dayKeys[dayIndex]];
+  const intervals = Array.isArray(dayTimes)
+    ? dayTimes
+        .filter((time) => time?.start && time?.end)
+        .map((time) => `${time.start} - ${time.end}`)
+    : [];
+
+  return `${intervals.length ? intervals.join(", ") : "Encerrado"}`;
+}
+
 export default function Homepage() {
   const router = useRouter();
   const [areas, setAreas] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [menus, setMenus] = useState([]);
   const [submenus, setSubmenus] = useState([]);
+  const [outletScheduleLabels, setOutletScheduleLabels] = useState({});
   const [languages, setLanguages] = useState([]);
   const [personalize, setPersonalize] = useState(null);
   const [selectedLang, setSelectedLang] = useState(1);
@@ -154,12 +179,13 @@ export default function Homepage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [areasData, outletsData, menusData, submenusData, langs, pers] = await Promise.all(
+      const [areasData, outletsData, menusData, submenusData, schedulesData, langs, pers] = await Promise.all(
         [
           "/api/areas",
           "/api/outlets",
           "/api/menus",
           "/api/submenus",
+          "/api/schedules",
           "/api/languages",
           "/api/personalize",
         ].map(
@@ -178,20 +204,48 @@ export default function Homepage() {
         !Array.isArray(outletsData) ||
         !Array.isArray(menusData) ||
         !Array.isArray(submenusData) ||
+        !Array.isArray(schedulesData) ||
         !Array.isArray(langs)
       ) {
-        throw new TypeError("As APIs de áreas, outlets, menus, submenus e idiomas devem devolver listas.");
+        throw new TypeError("As APIs de áreas, outlets, menus, submenus, horários e idiomas devem devolver listas.");
       }
 
       const visibleAreas = areasData.filter((area) => isActive(area.visible));
       const visibleOutlets = outletsData.filter((outlet) => isActive(outlet.visible));
       const visibleMenus = menusData.filter((menu) => isActive(menu.visible));
       const visibleSubmenus = submenusData.filter((submenu) => isActive(submenu.visible));
+      const schedulesById = new Map(
+        schedulesData.map((schedule) => {
+          let scheduleData = schedule.schedule_json;
+          if (typeof scheduleData === "string") {
+            try {
+              scheduleData = JSON.parse(scheduleData);
+            } catch {
+              scheduleData = null;
+            }
+          }
+
+          return [Number(schedule.schedule_id), scheduleData];
+        })
+      );
+      const visibleScheduleLabels = Object.fromEntries(
+        visibleOutlets
+          .filter(
+            (outlet) =>
+              isActive(outlet.schedule_visible) && outlet.schedule_id != null
+          )
+          .map((outlet) => [
+            outlet.outlet_id,
+            getTodayScheduleLabel(schedulesById.get(Number(outlet.schedule_id))),
+          ])
+          .filter(([, label]) => label)
+      );
 
       setAreas(visibleAreas);
       setOutlets(visibleOutlets);
       setMenus(visibleMenus);
       setSubmenus(visibleSubmenus);
+      setOutletScheduleLabels(visibleScheduleLabels);
       setLanguages(langs.sort((a, b) => a.lang_order - b.lang_order));
       setPersonalize(pers || null);
 
@@ -1142,13 +1196,19 @@ export default function Homepage() {
                     }}
                   >
                     <div
-                      className="px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
+                      className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
                       style={{
                         color: theme.cardTextColor,
                         fontSize: `${theme.cardTextSize}px`
                       }}
                     >
-                      {getName(item, cardNamePrefix)}
+                      <span>{getName(item, cardNamePrefix)}</span>
+                      {selectedArea !== null &&
+                        outletScheduleLabels[item.outlet_id] && (
+                          <span className="text-xs font-bold flex items-center justify-center gap-1">
+                            <TbClockHour3 size={20} /> {outletScheduleLabels[item.outlet_id]}
+                          </span>
+                        )}
                     </div>
                   </div>
                 ))}
@@ -1237,6 +1297,7 @@ export default function Homepage() {
           title={personalize?.bar_text || "Bem vindo!"}
           areas={areas}
           outlets={outlets}
+          outletScheduleLabels={outletScheduleLabels}
           personalize={personalize}
           menuOpen={menuOpen}
           setMenuOpen={setMenuOpen}
