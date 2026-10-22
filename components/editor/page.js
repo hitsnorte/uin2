@@ -57,12 +57,12 @@ function hydrateProductNodes(value, productsById) {
       return {
         ...value,
         attrs: {
-          productId: product.product_id,
-          name: product.product_name1 || "Item sem nome",
-          description: product.product_description1 || "",
-          imageUrl: product.product_image_url || "",
-          productType: product.product_type || "",
-          price: product.product_price,
+          productId: product.item_id,
+          name: product.item_name1 || "Item sem nome",
+          description: product.item_description1 || "",
+          imageUrl: product.item_image_url || "",
+          productType: product.item_type || "",
+          price: product.item_price,
         },
       };
     }
@@ -267,7 +267,7 @@ function clearCategoryFilters() {
       if (cancelled || resolvedProducts.length === 0) return;
 
       const productsById = new Map(
-        resolvedProducts.map((product) => [Number(product.product_id), product])
+        resolvedProducts.map((product) => [Number(product.item_id), product])
       );
 
       const currentContent = editor.getJSON();
@@ -341,7 +341,7 @@ function clearCategoryFilters() {
     }
 
     const productsToInsert = newProductIds
-      .map((productId) => products.find((product) => product.product_id === productId))
+      .map((productId) => products.find((product) => product.item_id === productId))
       .filter(Boolean);
 
     editor
@@ -352,12 +352,12 @@ function clearCategoryFilters() {
         productsToInsert.map((product) => ({
           type: "product",
           attrs: {
-            productId: product.product_id,
-            name: product.product_name1 || "Item sem nome",
-            description: product.product_description1 || "",
-            imageUrl: product.product_image_url || "",
-            productType: product.product_type || "",
-            price: product.product_price,
+            productId: product.item_id,
+            name: product.item_name1 || "Item sem nome",
+            description: product.item_description1 || "",
+            imageUrl: product.item_image_url || "",
+            productType: product.item_type || "",
+            price: product.item_price,
           },
         }))
       )
@@ -371,7 +371,7 @@ function clearCategoryFilters() {
   }
 
   const filteredProducts = products.filter((product) => {
-    const productName = String(product.product_name1 || "").toLowerCase();
+    const productName = String(product.item_name1 || "").toLowerCase();
     const search = productSearch.trim().toLowerCase();
 
     // Pesquisa por nome
@@ -383,7 +383,7 @@ function clearCategoryFilters() {
       selectedCategoryIds.length === 0 ||
       selectedCategoryIds.some(
         (categoryId) =>
-          Number(categoryId) === Number(product.product_cat_id)
+          Number(categoryId) === Number(product.item_cat_id)
       );
 
     return matchesSearch && matchesCategory;
@@ -636,7 +636,7 @@ function clearCategoryFilters() {
                     ) : (
                       categories.map((category, index) => {
                         const categoryId = Number(
-                          category.product_cat_id
+                          category.item_subfamily_id
                         );
 
                         const isSelected =
@@ -644,7 +644,7 @@ function clearCategoryFilters() {
 
                         return (
                           <label
-                            key={`${category.product_cat_id}-${index}`}
+                            key={`${category.item_subfamily_id}-${index}`}
                             className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition ${
                               isSelected
                                 ? "bg-blue-50"
@@ -706,7 +706,7 @@ function clearCategoryFilters() {
               {selectedCategoryIds.map((categoryId) => {
                 const category = categories.find(
                   (item) =>
-                    Number(item.product_cat_id) ===
+                    Number(item.item_subfamily_id) ===
                     Number(categoryId)
                 );
 
@@ -750,12 +750,12 @@ function clearCategoryFilters() {
           <div className="grid gap-3 sm:grid-cols-2">
             {filteredProducts.map((product) => {
               const isSelected = draftProductIds.includes(
-                product.product_id
+                product.item_id
               );
 
               return (
                 <label
-                  key={product.product_id}
+                  key={product.item_id}
                   className={`flex cursor-pointer flex-col gap-3 rounded-2xl border px-4 py-4 transition ${
                     isSelected
                       ? "border-blue-500 bg-blue-50"
@@ -766,13 +766,13 @@ function clearCategoryFilters() {
 
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
-                        {product.product_name1 ||
+                        {product.item_name1 ||
                           "Item sem nome"}
                       </p>
 
                       <p className="text-xs text-gray-500">
                         {Number(
-                          product.product_price || 0
+                          product.item_price || 0
                         ).toFixed(2)}
                         €
                       </p>
@@ -783,7 +783,7 @@ function clearCategoryFilters() {
                       checked={isSelected}
                       onChange={() =>
                         toggleProductSelection(
-                          product.product_id
+                          product.item_id
                         )
                       }
                       className="mt-1 h-4 w-4 accent-blue-600"

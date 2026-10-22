@@ -113,55 +113,6 @@ model PreparationGroups {
   preparation_group_name String? @db.VarChar(150)
 }
 
-model ProductCats {
-  product_cat_id    Int     @id @default(autoincrement())
-  product_family_id Int?
-  category_name1    String? @db.VarChar(150)
-  category_name2    String? @db.VarChar(150)
-  category_name3    String? @db.VarChar(150)
-  category_name4    String? @db.VarChar(150)
-  category_name5    String? @db.VarChar(150)
-}
-
-model ProductFamily {
-  product_family_id   Int     @id @default(autoincrement())
-  product_group_id    Int?
-  product_family_name String? @db.VarChar(150)
-}
-
-model ProductGroup {
-  product_group_id   Int     @id @default(autoincrement())
-  product_group_name String? @db.VarChar(150)
-}
-
-model Products {
-  product_id           Int     @id @default(autoincrement())
-  product_cat_id       Int?
-  product_name1        String? @db.VarChar(150)
-  product_name2        String? @db.VarChar(150)
-  product_name3        String? @db.VarChar(150)
-  product_name4        String? @db.VarChar(150)
-  product_name5        String? @db.VarChar(150)
-  preparation          Json?
-  product_description1 String? @db.VarChar(150)
-  product_description2 String? @db.VarChar(150)
-  product_description3 String? @db.VarChar(150)
-  product_description4 String? @db.VarChar(150)
-  product_description5 String? @db.VarChar(150)
-  product_image_url    String? @db.VarChar(150)
-  product_price        String? @db.VarChar(45)
-  product_type         String? @db.VarChar(45)
-  reservation          String? @db.VarChar(1)
-  checkin              String? @db.VarChar(1)
-  room                 String? @db.VarChar(1)
-  instantOrder         String? @db.VarChar(1)
-  sendStaychat         String? @db.VarChar(1)
-  staychatWebhook      String? @db.VarChar(255)
-  visiblePrice         String? @db.VarChar(1)
-  allowReservations    String? @db.VarChar(1)
-  scheduleID           String? @db.VarChar(1)
-}
-
 model Users {
   user_id    Int       @id @default(autoincrement())
   username   String    @db.VarChar(100)
@@ -334,4 +285,53 @@ model MenuSubmenuContent {
   created_by Int
   updated_at DateTime? @default(now()) @db.Timestamp(0)
   updated_by Int?
+}
+
+model ItemFamily {
+  item_family_id   Int     @id @default(autoincrement())
+  item_group_id    Int?
+  item_family_name String? @db.VarChar(150)
+}
+
+model ItemGroup {
+  item_group_id   Int     @id @default(autoincrement())
+  item_group_name String? @db.VarChar(150)
+}
+
+model ItemSubFamily {
+  item_subfamily_id Int     @id @default(autoincrement())
+  item_family_id    Int?
+  category_name1    String? @db.VarChar(150)
+  category_name2    String? @db.VarChar(150)
+  category_name3    String? @db.VarChar(150)
+  category_name4    String? @db.VarChar(150)
+  category_name5    String? @db.VarChar(150)
+}
+
+model Items {
+  item_id           Int     @id @default(autoincrement())
+  item_cat_id       Int?
+  item_name1        String? @db.VarChar(150)
+  item_name2        String? @db.VarChar(150)
+  item_name3        String? @db.VarChar(150)
+  item_name4        String? @db.VarChar(150)
+  item_name5        String? @db.VarChar(150)
+  item_description1 String? @db.VarChar(150)
+  item_description2 String? @db.VarChar(150)
+  item_description3 String? @db.VarChar(150)
+  item_description4 String? @db.VarChar(150)
+  item_description5 String? @db.VarChar(150)
+  item_image_url    String? @db.VarChar(150)
+  item_type         String? @db.VarChar(45)
+  item_price        String? @db.VarChar(45)
+  reservation       String? @db.VarChar(1)
+  checkin           String? @db.VarChar(1)
+  room              String? @db.VarChar(1)
+  instantOrder      String? @db.VarChar(1)
+  sendStaychat      String? @db.VarChar(1)
+  staychatWebhook   String? @db.VarChar(255)
+  visiblePrice      String? @db.VarChar(1)
+  allowReservations String? @db.VarChar(1)
+  scheduleID        String? @db.VarChar(1)
+  preparation       Json?
 }

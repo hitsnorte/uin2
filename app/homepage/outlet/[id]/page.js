@@ -40,12 +40,12 @@ function enrichProductNodes(value, productsById) {
       return {
         ...value,
         attrs: {
-          productId: product.product_id,
-          name: product.product_name1 || "Item sem nome",
-          description: product.product_description1 || "",
-          imageUrl: product.product_image_url || "",
-          productType: product.product_type || "",
-          price: product.product_price,
+          productId: product.item_id,
+          name: product.item_name1 || "Item sem nome",
+          description: product.item_description1 || "",
+          imageUrl: product.item_image_url || "",
+          productType: product.item_type || "",
+          price: product.item_price,
         },
       };
     }
@@ -164,7 +164,7 @@ export default function OutletPage() {
 
       const productsById = new Map(
         products.filter(Boolean).map((product) => [
-          Number(product.product_id),
+          Number(product.item_id),
           product,
         ])
       );
@@ -307,7 +307,7 @@ export default function OutletPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId: selectedProduct.product_id,
+          productId: selectedProduct.item_id,
           quantity,
         }),
       });
@@ -422,11 +422,11 @@ export default function OutletPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedProduct.product_name1 || "Item sem nome"}
+                  {selectedProduct.item_name1 || "Item sem nome"}
                 </h2>
-                {selectedProduct.product_description1 && (
+                {selectedProduct.item_description1 && (
                   <p className="mt-2 text-sm text-gray-600">
-                    {selectedProduct.product_description1}
+                    {selectedProduct.item_description1}
                   </p>
                 )}
               </div>
@@ -441,8 +441,8 @@ export default function OutletPage() {
             </div>
 
             <p className="mt-4 text-lg font-semibold text-gray-900">
-              {selectedProduct.product_price
-  ? `${Number(selectedProduct.product_price).toFixed(2)} €`
+              {selectedProduct.item_price
+  ? `${Number(selectedProduct.item_price).toFixed(2)} €`
   : ''}
             </p>
 
@@ -483,7 +483,7 @@ export default function OutletPage() {
             </div>
 
             <p className="mt-3 text-right text-sm font-semibold text-gray-700">
-              Total: {(Number(selectedProduct.product_price || 0) * quantity).toFixed(2)} €
+              Total: {(Number(selectedProduct.item_price || 0) * quantity).toFixed(2)} €
             </p>
 
             {orderMessage && (

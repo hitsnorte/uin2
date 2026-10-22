@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 // GET all
 export async function GET() {
-  const data = await prisma.ProductFamily.findMany();
+  const data = await prisma.itemFamily.findMany();
   console.log(data);
   return Response.json(data);
 }
@@ -13,10 +13,10 @@ export async function GET() {
 export async function POST(req) {
   const body = await req.json();
 
-  const created = await prisma.ProductFamily.create({
+  const created = await prisma.itemFamily.create({
     data: {
-      product_family_name: body.product_family_name,
-      product_group_id: body.product_group_id ? Number(body.product_group_id) : null
+      item_family_name: body.item_family_name,
+      item_group_id: body.item_group_id ? Number(body.item_group_id) : null
     },
   });
 

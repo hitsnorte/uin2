@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 
 // GET all
 export async function GET() {
-  const data = await prisma.productGroup.findMany();
+  const data = await prisma.itemGroup.findMany();
   console.log(data);
   return Response.json(data);
 }
@@ -13,9 +13,9 @@ export async function GET() {
 export async function POST(req) {
   const body = await req.json();
 
-  const created = await prisma.productGroup.create({
+  const created = await prisma.itemGroup.create({
     data: {
-      product_group_name: body.product_group_name,
+      item_group_name: body.item_group_name,
     },
   });
 

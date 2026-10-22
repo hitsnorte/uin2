@@ -9,28 +9,28 @@ export async function POST(req) {
   const orderQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
   if (!id) {
-    return NextResponse.json({ error: "Missing product id" }, { status: 400 });
+    return NextResponse.json({ error: "Missing item id" }, { status: 400 });
   }
 
-  const product = await prisma.products.findUnique({
-    where: { product_id: id },
+  const item = await prisma.items.findUnique({
+    where: { item_id: id },
   });
 
-  if (!product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  if (!item) {
+    return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
 
-  if (product.sendStaychat !== "1" || !product.staychatWebhook) {
+  if (item.sendStaychat !== "1" || !item.staychatWebhook) {
     return NextResponse.json(
-      { error: "Stay Chat is not enabled for this product" },
+      { error: "Stay Chat is not enabled for this item" },
       { status: 400 }
     );
   }
 
-  const productName = product.product_name1 || "Item sem nome";
-  const price = Number(product.product_price || 0).toFixed(2);
+  const itemName = item.item_name1 || "Item sem nome";
+  const price = Number(item.item_price || 0).toFixed(2);
 
-  const webhookResponse = await fetch(product.staychatWebhook, {
+  const webhookResponse = await fetch(item.staychatWebhook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -43,11 +43,11 @@ export async function POST(req) {
                 messages: [
                   {
                     from: "351912906080",
-                    id: `product-order-${product.product_id}-${Date.now()}`,
+                    id: `item-order-${item.item_id}-${Date.now()}`,
                     timestamp: String(Math.floor(Date.now() / 1000)),
                     type: "text",
                     text: {
-                        body: `Pedido: ${orderQuantity}x ${productName} - ${price} €`,
+                        body: `Pedido: ${orderQuantity}x ${itemName} - ${price} €`,
                     },
                   },
                 ],

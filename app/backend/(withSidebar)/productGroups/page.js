@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 
-export default function ProductGroupsPage() {
+export default function ItemGroupsPage() {
   const [groups, setGroups] = useState([]);
   const [search, setSearch] = useState("");
 
@@ -31,8 +31,8 @@ export default function ProductGroupsPage() {
   }
 
   function openEdit(group) {
-    setEditingId(group.product_group_id);
-    setName(group.product_group_name || "");
+    setEditingId(group.item_group_id);
+    setName(group.item_group_name || "");
     setShowModal(true);
   }
 
@@ -46,7 +46,7 @@ export default function ProductGroupsPage() {
       if (!editingId) {
         await fetch("/api/productGroups", {
           method: "POST",
-          body: JSON.stringify({ product_group_name: name }),
+          body: JSON.stringify({ item_group_name: name }),
           headers: {
             "Content-Type": "application/json",
           },
@@ -56,7 +56,7 @@ export default function ProductGroupsPage() {
       else {
         await fetch(`/api/productGroups/${editingId}`, {
           method: "PUT",
-          body: JSON.stringify({ product_group_name: name }),
+          body: JSON.stringify({ item_group_name: name }),
           headers: {
             "Content-Type": "application/json",
           },
@@ -92,7 +92,7 @@ export default function ProductGroupsPage() {
   }
 
   const filtered = groups.filter((g) =>
-    (g.product_group_name || "")
+    (g.item_group_name || "")
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -135,15 +135,15 @@ export default function ProductGroupsPage() {
           <tbody>
             {filtered.map((group) => (
               <tr
-                key={group.product_group_id}
+                key={group.item_group_id}
                 className="border-t border-gray-100"
               >
                 <td className="p-4 text-gray-500">
-                  {group.product_group_id}
+                  {group.item_group_id}
                 </td>
 
                 <td className="p-4 font-medium text-gray-800">
-                  {group.product_group_name}
+                  {group.item_group_name}
                 </td>
 
                 <td className="p-4 text-right flex justify-end gap-2">
@@ -155,11 +155,11 @@ export default function ProductGroupsPage() {
                   </button>
 
                   <button
-                    onClick={() => deleteGroup(group.product_group_id)}
-                    disabled={deletingId === group.product_group_id}
-                    className={`px-3 py-1 rounded-lg text-sm ${deletingId === group.product_group_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
+                    onClick={() => deleteGroup(group.item_group_id)}
+                    disabled={deletingId === group.item_group_id}
+                    className={`px-3 py-1 rounded-lg text-sm ${deletingId === group.item_group_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
                   >
-                    {deletingId === group.product_group_id ? "Eliminando..." : "Eliminar"}
+                    {deletingId === group.item_group_id ? "Eliminando..." : "Eliminar"}
                   </button>
                 </td>
               </tr>

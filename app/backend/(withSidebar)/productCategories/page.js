@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 
-export default function ProductCategoriesPage() {
+export default function ItemSubfamiliesPage() {
   const [categories, setCategories] = useState([]);
   const [families, setFamilies] = useState([]);
   const [languages, setLanguages] = useState([]);
@@ -17,7 +17,7 @@ export default function ProductCategoriesPage() {
     category_name4: "",
     category_name5: "",
   });
-  const [productFamilyId, setProductFamilyId] = useState("");
+  const [itemFamilyId, setItemFamilyId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -57,12 +57,12 @@ export default function ProductCategoriesPage() {
       category_name4: "",
       category_name5: "",
     });
-    setProductFamilyId("");
+    setItemFamilyId("");
     setShowModal(true);
   }
 
   function openEdit(category) {
-    setEditingId(category.product_cat_id);
+    setEditingId(category.item_subfamily_id);
     setForm({
       category_name1: category.category_name1 || "",
       category_name2: category.category_name2 || "",
@@ -70,8 +70,8 @@ export default function ProductCategoriesPage() {
       category_name4: category.category_name4 || "",
       category_name5: category.category_name5 || "",
     });
-    setProductFamilyId(
-      category.product_family_id ? String(category.product_family_id) : ""
+    setItemFamilyId(
+      category.item_family_id ? String(category.item_family_id) : ""
     );
     setShowModal(true);
   }
@@ -87,7 +87,7 @@ export default function ProductCategoriesPage() {
 
     const payload = {
       ...form,
-      product_family_id: productFamilyId ? Number(productFamilyId) : null,
+      item_family_id: itemFamilyId ? Number(itemFamilyId) : null,
     };
 
     try {
@@ -113,7 +113,7 @@ export default function ProductCategoriesPage() {
         category_name4: "",
         category_name5: "",
       });
-      setProductFamilyId("");
+      setItemFamilyId("");
       setEditingId(null);
       fetchCategories();
     } finally {
@@ -155,7 +155,7 @@ export default function ProductCategoriesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="-mx-6 -mt-6">
-        <Topbar title="Categorias de Itens" />
+        <Topbar title="Subfamílias de Itens" />
       </div>
 
       {/* HEADER */}
@@ -163,7 +163,7 @@ export default function ProductCategoriesPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Pesquisar categoria..."
+          placeholder="Pesquisar subfamília..."
           className="h-11 w-72 border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none"
         />
 
@@ -172,7 +172,7 @@ export default function ProductCategoriesPage() {
           disabled={showModal || isSaving}
           className={`h-11 px-5 rounded-lg ${showModal || isSaving ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
         >
-          + Criar Categoria
+          + Criar Subfamília
         </button>
       </div>
 
@@ -199,16 +199,16 @@ export default function ProductCategoriesPage() {
           <tbody>
             {filtered.map((category) => {
               const family = families.find(
-                (item) => item.product_family_id === category.product_family_id
+                (item) => item.item_family_id === category.item_family_id
               );
 
               return (
                 <tr
-                  key={category.product_cat_id}
+                  key={category.item_subfamily_id}
                   className="border-t border-gray-100"
                 >
                   <td className="p-4 text-gray-500">
-                    {category.product_cat_id}
+                    {category.item_subfamily_id}
                   </td>
 
                   {languages.length > 0 ? (
@@ -227,7 +227,7 @@ export default function ProductCategoriesPage() {
                   )}
 
                   <td className="p-4 text-gray-600">
-                    {family?.product_family_name || "-"}
+                    {family?.item_family_name || "-"}
                   </td>
 
                   <td className="p-4 text-right flex justify-end gap-2">
@@ -239,11 +239,11 @@ export default function ProductCategoriesPage() {
                     </button>
 
                     <button
-                      onClick={() => deleteCategory(category.product_cat_id)}
-                      disabled={deletingId === category.product_cat_id}
-                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === category.product_cat_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
+                      onClick={() => deleteCategory(category.item_subfamily_id)}
+                      disabled={deletingId === category.item_subfamily_id}
+                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === category.item_subfamily_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
                     >
-                      {deletingId === category.product_cat_id ? "Eliminar" : "Eliminar"}
+                      {deletingId === category.item_subfamily_id ? "Eliminar" : "Eliminar"}
                     </button>
                   </td>
                 </tr>
@@ -258,7 +258,7 @@ export default function ProductCategoriesPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-[360px] max-w-[90vw]">
             <h2 className="text-lg font-semibold mb-4">
-              {editingId ? "Editar Categoria" : "Criar Categoria"}
+              {editingId ? "Editar Subfamília" : "Criar Subfamília"}
             </h2>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -287,17 +287,17 @@ export default function ProductCategoriesPage() {
               )}
 
               <select
-                value={productFamilyId}
-                onChange={(e) => setProductFamilyId(e.target.value)}
+                value={itemFamilyId}
+                onChange={(e) => setItemFamilyId(e.target.value)}
                 className="h-11 border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none bg-white"
               >
                 <option value="">Selecionar família</option>
                 {families.map((family) => (
                   <option
-                    key={family.product_family_id}
-                    value={family.product_family_id}
+                    key={family.item_family_id}
+                    value={family.item_family_id}
                   >
-                    {family.product_family_name}
+                    {family.item_family_name}
                   </option>
                 ))}
               </select>

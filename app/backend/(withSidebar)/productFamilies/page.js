@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 
-export default function ProductFamiliesPage() {
+export default function ItemFamiliesPage() {
   const [families, setFamilies] = useState([]);
   const [groups, setGroups] = useState([]);
 
@@ -11,7 +11,7 @@ export default function ProductFamiliesPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
-  const [productGroupId, setProductGroupId] = useState("");
+  const [itemGroupId, setItemGroupId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -37,15 +37,15 @@ export default function ProductFamiliesPage() {
   function openCreate() {
     setEditingId(null);
     setName("");
-    setProductGroupId("");
+    setItemGroupId("");
     setShowModal(true);
   }
 
   function openEdit(family) {
-    setEditingId(family.product_family_id);
-    setName(family.product_family_name || "");
-    setProductGroupId(
-      family.product_group_id ? String(family.product_group_id) : ""
+    setEditingId(family.item_family_id);
+    setName(family.item_family_name || "");
+    setItemGroupId(
+      family.item_group_id ? String(family.item_group_id) : ""
     );
     setShowModal(true);
   }
@@ -56,8 +56,8 @@ export default function ProductFamiliesPage() {
     setIsSaving(true);
 
     const payload = {
-      product_family_name: name,
-      product_group_id: productGroupId ? Number(productGroupId) : null,
+      item_family_name: name,
+      item_group_id: itemGroupId ? Number(itemGroupId) : null,
     };
 
     try {
@@ -77,7 +77,7 @@ export default function ProductFamiliesPage() {
 
       setShowModal(false);
       setName("");
-      setProductGroupId("");
+      setItemGroupId("");
       setEditingId(null);
       fetchFamilies();
     } finally {
@@ -105,7 +105,7 @@ export default function ProductFamiliesPage() {
   }
 
   const filtered = families.filter((f) =>
-    (f.product_family_name || "")
+    (f.item_family_name || "")
       .toLowerCase()
       .includes(search.toLowerCase())
   );
@@ -149,24 +149,24 @@ export default function ProductFamiliesPage() {
           <tbody>
             {filtered.map((family) => {
               const group = groups.find(
-                (g) => g.product_group_id === family.product_group_id
+                (g) => g.item_group_id === family.item_group_id
               );
 
               return (
                 <tr
-                  key={family.product_family_id}
+                  key={family.item_family_id}
                   className="border-t border-gray-100"
                 >
                   <td className="p-4 text-gray-500">
-                    {family.product_family_id}
+                    {family.item_family_id}
                   </td>
 
                   <td className="p-4 font-medium text-gray-800">
-                    {family.product_family_name}
+                    {family.item_family_name}
                   </td>
 
                   <td className="p-4 text-gray-600">
-                    {group?.product_group_name || "-"}
+                    {group?.item_group_name || "-"}
                   </td>
 
                   <td className="p-4 text-right flex justify-end gap-2">
@@ -178,11 +178,11 @@ export default function ProductFamiliesPage() {
                     </button>
 
                     <button
-                      onClick={() => deleteFamily(family.product_family_id)}
-                      disabled={deletingId === family.product_family_id}
-                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === family.product_family_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
+                      onClick={() => deleteFamily(family.item_family_id)}
+                      disabled={deletingId === family.item_family_id}
+                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === family.item_family_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
                     >
-                      {deletingId === family.product_family_id ? "Eliminar" : "Eliminar"}
+                      {deletingId === family.item_family_id ? "Eliminar" : "Eliminar"}
                     </button>
                   </td>
                 </tr>
@@ -211,18 +211,18 @@ export default function ProductFamiliesPage() {
 
               {/* GROUP SELECT */}
               <select
-                value={productGroupId}
-                onChange={(e) => setProductGroupId(e.target.value)}
+                value={itemGroupId}
+                onChange={(e) => setItemGroupId(e.target.value)}
                 className="h-11 border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none bg-white"
               >
                 <option value="">Sem grupo</option>
 
                 {groups.map((g) => (
                   <option
-                    key={g.product_group_id}
-                    value={g.product_group_id}
+                    key={g.item_group_id}
+                    value={g.item_group_id}
                   >
-                    {g.product_group_name}
+                    {g.item_group_name}
                   </option>
                 ))}
               </select>

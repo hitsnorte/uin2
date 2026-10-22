@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 
-export default function ProductsPage() {
+export default function ItemsPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [preparationGroups, setPreparationGroups] = useState([]);
-  const [preparations, setPreparations] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [search, setSearch] = useState("");
+  const [itemsError, setItemsError] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -19,38 +18,31 @@ export default function ProductsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [form, setForm] = useState({
-    product_name1: "",
-    product_name2: "",
-    product_name3: "",
-    product_name4: "",
-    product_name5: "",
-    product_description1: "",
-    product_description2: "",
-    product_description3: "",
-    product_description4: "",
-    product_description5: "",
-    product_image_url: "",
-    product_price: "",
-    visiblePrice: false,
-    product_type: "",
-    allowReservations: "0",
-    scheduleID: "",
-    preparation: "",
-    reservation: false,
-    checkin: false,
-    room: false,
-    instantOrder: false,
-    sendStaychat: false,
-    staychatWebhook: "",
+    item_name1: "",
+    item_name2: "",
+    item_name3: "",
+    item_name4: "",
+    item_name5: "",
+    item_description1: "",
+    item_description2: "",
+    item_description3: "",
+    item_description4: "",
+    item_description5: "",
+    item_image_url: "",
+    item_type: "",
   });
 
-  const [productCatId, setProductCatId] = useState("");
-  const [preparationGroupId, setPreparationGroupId] = useState("");
+  const [itemSubfamilyId, setItemSubfamilyId] = useState("");
 
   async function fetchProducts() {
     const res = await fetch("/api/products");
+    if (!res.ok) {
+      throw new Error(`Falha ao carregar itens (${res.status})`);
+    }
+
     const data = await res.json();
     setProducts(data);
+    setItemsError("");
   }
 
   async function fetchCategories() {
@@ -68,21 +60,13 @@ export default function ProductsPage() {
     setLanguages(sorted);
   }
 
-  async function fetchPreparations() {
-    const [groupsRes, preparationsRes] = await Promise.all([
-      fetch("/api/preparationGroups"),
-      fetch("/api/preparation"),
-    ]);
-
-    setPreparationGroups(await groupsRes.json());
-    setPreparations(await preparationsRes.json());
-  }
-
   useEffect(() => {
-    fetchProducts();
+    fetchProducts().catch((error) => {
+      console.error(error);
+      setItemsError(error.message || "Erro ao carregar itens.");
+    });
     fetchCategories();
     fetchLanguages();
-    fetchPreparations();
   }, []);
 
   function openCreate() {
@@ -90,129 +74,52 @@ export default function ProductsPage() {
     setActiveTab("base");
     setShowProductTypeError(false);
     setForm({
-      product_name1: "",
-      product_name2: "",
-      product_name3: "",
-      product_name4: "",
-      product_name5: "",
-      product_description1: "",
-      product_description2: "",
-      product_description3: "",
-      product_description4: "",
-      product_description5: "",
-      product_image_url: "",
-      product_price: "",
-      visiblePrice: false,
-      product_type: "",
-      allowReservations: "0",
-      scheduleID: "",
-      preparation: "",
-      reservation: false,
-      checkin: false,
-      room: false,
-      instantOrder: false,
-      sendStaychat: false,
-      staychatWebhook: "",
+      item_name1: "",
+      item_name2: "",
+      item_name3: "",
+      item_name4: "",
+      item_name5: "",
+      item_description1: "",
+      item_description2: "",
+      item_description3: "",
+      item_description4: "",
+      item_description5: "",
+      item_image_url: "",
+      item_type: "",
     });
-    setProductCatId("");
-    setPreparationGroupId("");
+    setItemSubfamilyId("");
     setShowModal(true);
   }
 
   function openEdit(product) {
-    setEditingId(product.product_id);
+    setEditingId(product.item_id);
     setActiveTab("base");
     setShowProductTypeError(false);
 
-    const savedPreparation = product.preparation
-      ? typeof product.preparation === "string"
-        ? JSON.parse(product.preparation)
-        : product.preparation
-      : null;
-    const savedGroupId = savedPreparation?.groups?.[0]?.preparation_group_id;
-
     setForm({
-      product_name1: product.product_name1 || "",
-      product_name2: product.product_name2 || "",
-      product_name3: product.product_name3 || "",
-      product_name4: product.product_name4 || "",
-      product_name5: product.product_name5 || "",
-      product_description1: product.product_description1 || "",
-      product_description2: product.product_description2 || "",
-      product_description3: product.product_description3 || "",
-      product_description4: product.product_description4 || "",
-      product_description5: product.product_description5 || "",
-      product_image_url: product.product_image_url || "",
-      product_price: product.product_price ?? "",
-      visiblePrice: product.visiblePrice === true || product.visiblePrice === "1",
-      product_type: product.product_type || "",
-      allowReservations:
-        product.allowReservations === true || product.allowReservations === "1" ? "1" : "0",
-      scheduleID: product.scheduleID || "",
-      preparation: savedPreparation ? JSON.stringify(savedPreparation, null, 2) : "",
-      reservation: product.reservation === true || product.reservation === "1",
-      checkin: product.checkin === true || product.checkin === "1",
-      room: product.room === true || product.room === "1",
-      instantOrder: product.instantOrder === true || product.instantOrder === "1",
-      sendStaychat: product.sendStaychat === true || product.sendStaychat === "1",
-      staychatWebhook: product.staychatWebhook || "",
+      item_name1: product.item_name1 || "",
+      item_name2: product.item_name2 || "",
+      item_name3: product.item_name3 || "",
+      item_name4: product.item_name4 || "",
+      item_name5: product.item_name5 || "",
+      item_description1: product.item_description1 || "",
+      item_description2: product.item_description2 || "",
+      item_description3: product.item_description3 || "",
+      item_description4: product.item_description4 || "",
+      item_description5: product.item_description5 || "",
+      item_image_url: product.item_image_url || "",
+      item_type: product.item_type || "",
     });
 
-    setProductCatId(product.product_cat_id ? String(product.product_cat_id) : "");
-    setPreparationGroupId(savedGroupId ? String(savedGroupId) : "");
+    setItemSubfamilyId(
+      product.item_cat_id ? String(product.item_cat_id) : ""
+    );
     setShowModal(true);
   }
 
-  function handlePreparationGroupChange(e) {
-    const groupId = e.target.value;
-    setPreparationGroupId(groupId);
-
-    if (!groupId) {
-      setForm((prev) => ({ ...prev, preparation: "" }));
-      return;
-    }
-
-    const group = preparationGroups.find(
-      (item) => item.preparation_group_id === Number(groupId)
-    );
-    const groupPreparations = preparations.filter(
-      (item) => item.preparation_group_id === Number(groupId)
-    );
-
-    setForm((prev) => ({
-      ...prev,
-      preparation: JSON.stringify(
-        {
-          groups: [
-            {
-              preparation_group_id: group.preparation_group_id,
-              preparations: groupPreparations.map(
-                (preparation) => preparation.preparation_id
-              ),
-            },
-          ],
-        },
-        null,
-        2
-      ),
-    }));
-  }
-
   function handleChange(e) {
-    const { name, type, value, checked } = e.target;
-
-    setForm((prev) => {
-      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
-
-      if (name === "product_type" && value !== "Produto") {
-        next.product_price = "";
-        next.visiblePrice = false;
-        next.allowReservations = "0";
-        next.scheduleID = "";
-      }
-
-      return next;
-    });
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   async function uploadImage(file) {
@@ -231,7 +138,7 @@ export default function ProductsPage() {
     if (data.url) {
       setForm((prev) => ({
         ...prev,
-        product_image_url: data.url,
+        item_image_url: data.url,
       }));
     }
   }
@@ -239,53 +146,36 @@ export default function ProductsPage() {
   function removeImage() {
     setForm((prev) => ({
       ...prev,
-      product_image_url: "",
+      item_image_url: "",
     }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.product_type) {
+    if (!form.item_type) {
       setActiveTab("settings");
       setShowProductTypeError(true);
       return;
     }
 
-    if (!form.product_name1) return;
+    if (!form.item_name1) return;
 
     setIsSaving(true);
 
-    let preparationJson = null;
-
-    try {
-      preparationJson = form.preparation ? JSON.parse(form.preparation) : null;
-    } catch (err) {
-      alert("JSON inválido em preparation");
-      setIsSaving(false);
-      return;
-    }
-
-    const isProductType = form.product_type === "Produto";
-
     const payload = {
-      ...form,
-      preparation: preparationJson,
-      product_cat_id: productCatId ? Number(productCatId) : null,
-      product_price:
-        isProductType && form.product_price !== ""
-          ? String(form.product_price).trim()
-          : null,
-      allowReservations: isProductType ? form.allowReservations : "0",
-      scheduleID:
-        isProductType && form.allowReservations === "1"
-          ? form.scheduleID.trim()
-          : null,
-      reservation: form.reservation,
-      checkin: form.checkin,
-      room: form.room,
-      instantOrder: form.instantOrder,
-      sendStaychat: form.sendStaychat,
-      staychatWebhook: form.staychatWebhook.trim() || null,
+      item_name1: form.item_name1,
+      item_name2: form.item_name2,
+      item_name3: form.item_name3,
+      item_name4: form.item_name4,
+      item_name5: form.item_name5,
+      item_description1: form.item_description1,
+      item_description2: form.item_description2,
+      item_description3: form.item_description3,
+      item_description4: form.item_description4,
+      item_description5: form.item_description5,
+      item_image_url: form.item_image_url,
+      item_type: form.item_type,
+      item_cat_id: itemSubfamilyId ? Number(itemSubfamilyId) : null,
     };
 
     try {
@@ -330,7 +220,7 @@ export default function ProductsPage() {
 
   const filtered = products.filter((product) =>
     languages.some((lang) => {
-      const field = `product_name${lang.lang_order}`;
+      const field = `item_name${lang.lang_order}`;
       return (product[field] || "")
         .toLowerCase()
         .includes(search.toLowerCase());
@@ -363,6 +253,11 @@ export default function ProductsPage() {
 
       {/* TABLE */}
       <div className="w-full bg-white border border-gray-200 rounded-2xl shadow-md overflow-hidden">
+        {itemsError && (
+          <p role="alert" className="p-4 text-sm text-red-600">
+            {itemsError}
+          </p>
+        )}
         <table className="w-full text-sm">
           <thead className="bg-gray-100 text-left text-gray-600">
             <tr>
@@ -379,7 +274,6 @@ export default function ProductsPage() {
               )}
 
               <th className="p-4">Categoria</th>
-              <th className="p-4">Preço</th>
               <th className="p-4 text-right">Ações</th>
             </tr>
           </thead>
@@ -387,16 +281,16 @@ export default function ProductsPage() {
           <tbody>
             {filtered.map((product) => {
               const category = categories.find(
-                (c) => c.product_cat_id === product.product_cat_id
+                (c) => c.item_subfamily_id === product.item_cat_id
               );
 
               return (
-                <tr key={product.product_id} className="border-t border-gray-100">
-                  <td className="p-4 text-gray-500">{product.product_id}</td>
+                <tr key={product.item_id} className="border-t border-gray-100">
+                  <td className="p-4 text-gray-500">{product.item_id}</td>
 
                   {languages.length > 0 ? (
                     languages.map((lang) => {
-                      const field = `product_name${lang.lang_order}`;
+                      const field = `item_name${lang.lang_order}`;
                       return (
                         <td
                           key={lang.lang_id}
@@ -408,16 +302,12 @@ export default function ProductsPage() {
                     })
                   ) : (
                     <td className="p-4 font-medium text-gray-800">
-                      {product.product_name1}
+                      {product.item_name1}
                     </td>
                   )}
 
                   <td className="p-4 text-gray-600">
                     {category?.category_name1 || "-"}
-                  </td>
-
-                  <td className="p-4 text-gray-700">
-                    {Number(product.product_price || 0).toFixed(2)} €
                   </td>
 
                   <td className="p-4 text-right flex justify-end gap-2">
@@ -429,11 +319,11 @@ export default function ProductsPage() {
                     </button>
 
                     <button
-                      onClick={() => deleteProduct(product.product_id)}
-                      disabled={deletingId === product.product_id}
-                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === product.product_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
+                      onClick={() => deleteProduct(product.item_id)}
+                      disabled={deletingId === product.item_id}
+                      className={`px-3 py-1 rounded-lg text-sm ${deletingId === product.item_id ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
                     >
-                      {deletingId === product.product_id ? "Eliminar" : "Eliminar"}
+                      {deletingId === product.item_id ? "Eliminar" : "Eliminar"}
                     </button>
                   </td>
                 </tr>
@@ -464,13 +354,15 @@ export default function ProductsPage() {
             <div className="border-b px-6">
               <div className="flex gap-6" role="tablist" aria-label="Secções do item">
                 {[
-                  ["base", "Base"],
-                  ["settings", "Configurações"],
+                  ["base", "Nomes e descrições"],
+                  ["settings", "Categoria, tipo e imagem"],
                 ].map(([tab, label]) => (
                   <button
                     key={tab}
                     type="button"
                     role="tab"
+                    id={`item-tab-${tab}`}
+                    aria-controls="item-form"
                     aria-selected={activeTab === tab}
                     onClick={() => setActiveTab(tab)}
                     className={`border-b-2 px-1 py-3 text-sm font-medium transition ${
@@ -486,14 +378,21 @@ export default function ProductsPage() {
             </div>
 
             <div className="overflow-y-auto flex-1 p-6">
-              <form id="product-form" noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <form
+                id="item-form"
+                role="tabpanel"
+                aria-labelledby={`item-tab-${activeTab}`}
+                noValidate
+                onSubmit={handleSubmit}
+                className="flex flex-col gap-6"
+              >
                 {activeTab === "base" ? (
                   <div>
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-3">Nomes</p>
                       {languages.length > 0 ? (
                         languages.map((language) => {
-                          const field = `product_name${language.lang_order}`;
+                          const field = `item_name${language.lang_order}`;
                           return (
                             <input
                               key={language.lang_id}
@@ -507,8 +406,8 @@ export default function ProductsPage() {
                         })
                       ) : (
                         <input
-                          name="product_name1"
-                          value={form.product_name1}
+                          name="item_name1"
+                          value={form.item_name1}
                           onChange={handleChange}
                           placeholder="Nome do item"
                           className="h-11 w-full border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none"
@@ -520,7 +419,7 @@ export default function ProductsPage() {
                       <p className="text-sm font-semibold text-gray-600 mb-3">Descrições</p>
                       {languages.length > 0 ? (
                         languages.map((language) => {
-                          const field = `product_description${language.lang_order}`;
+                          const field = `item_description${language.lang_order}`;
                           return (
                             <textarea
                               key={language.lang_id}
@@ -535,8 +434,8 @@ export default function ProductsPage() {
                         })
                       ) : (
                         <textarea
-                          name="product_description1"
-                          value={form.product_description1 || ""}
+                          name="item_description1"
+                          value={form.item_description1 || ""}
                           onChange={handleChange}
                           placeholder="Descrição do item"
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:border-red-500 outline-none resize-none"
@@ -550,13 +449,13 @@ export default function ProductsPage() {
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-3">Categoria</p>
                       <select
-                        value={productCatId}
-                        onChange={(e) => setProductCatId(e.target.value)}
+                        value={itemSubfamilyId}
+                        onChange={(e) => setItemSubfamilyId(e.target.value)}
                         className="w-full h-11 border border-gray-300 rounded-lg px-3 bg-white focus:border-red-500 outline-none"
                       >
                         <option value="">Selecionar categoria</option>
                         {categories.map((cat) => (
-                          <option key={cat.product_cat_id} value={cat.product_cat_id}>
+                          <option key={cat.item_subfamily_id} value={cat.item_subfamily_id}>
                             {cat.category_name1}
                           </option>
                         ))}
@@ -566,8 +465,8 @@ export default function ProductsPage() {
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-3">Tipo de item</p>
                       <select
-                        name="product_type"
-                        value={form.product_type}
+                        name="item_type"
+                        value={form.item_type}
                         onChange={(e) => {
                           handleChange(e);
                           if (e.target.value) setShowProductTypeError(false);
@@ -577,8 +476,12 @@ export default function ProductsPage() {
                         className={`w-full h-11 border rounded-lg px-3 bg-white outline-none ${showProductTypeError ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-red-500"}`}
                       >
                         <option value="">Selecionar tipo</option>
-                        <option value="Informação">Informação</option>
                         <option value="Produto">Produto</option>
+                        <option value="Serviço">Serviço</option>
+                        <option value="Review">Review</option>
+                        <option value="Informação">Informação</option>
+                        <option value="Reserva de mesa">Reserva de mesa</option>
+                        <option value="Marcador">Marcador</option>
                       </select>
                       {showProductTypeError && (
                         <p id="product-type-error" role="alert" className="mt-2 text-sm text-red-600">
@@ -587,191 +490,15 @@ export default function ProductsPage() {
                       )}
                     </div>
 
-                    {form.product_type === "Produto" && (
-                      <div>
-                        <p className="text-sm font-semibold text-gray-600 mb-3">Preço</p>
-                        <input
-                          type="number"
-                          name="product_price"
-                          value={form.product_price}
-                          onChange={handleChange}
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          className="h-11 w-full border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none"
-                        />
-                        <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
-                          <input
-                            type="checkbox"
-                            name="visiblePrice"
-                            checked={form.visiblePrice}
-                            onChange={handleChange}
-                            className="h-4 w-4 accent-red-500"
-                          />
-                          <span>Mostrar preço</span>
-                        </label>
-                      </div>
-                    )}
-
-                    {form.product_type === "Produto" && (
-                      <div>
-                        <p className="text-sm font-semibold text-gray-600 mb-3">
-                          Permite reservas
-                        </p>
-                        <label className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                          <input
-                            type="checkbox"
-                            name="allowReservations"
-                            checked={form.allowReservations === "1"}
-                            onChange={(e) => {
-                              const allowed = e.target.checked;
-                              setForm((prev) => ({
-                                ...prev,
-                                allowReservations: allowed ? "1" : "0",
-                                scheduleID: allowed ? prev.scheduleID : "",
-                              }));
-                            }}
-                            className="h-4 w-4 accent-red-500"
-                          />
-                          <span>Sim</span>
-                        </label>
-                        {form.allowReservations === "1" && (
-                          <input
-                            type="text"
-                            name="scheduleID"
-                            value={form.scheduleID}
-                            onChange={handleChange}
-                            maxLength={1}
-                            placeholder="ID do horário"
-                            className="mt-3 h-11 w-full border border-gray-300 rounded-lg px-3 focus:border-red-500 outline-none"
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-3">
-                        Grupo de preparação
-                      </p>
-                      <select
-                        value={preparationGroupId}
-                        onChange={handlePreparationGroupChange}
-                        className="w-full h-11 border border-gray-300 rounded-lg px-3 bg-white focus:border-red-500 outline-none"
-                      >
-                        <option value="">Selecionar grupo de preparação</option>
-                        {preparationGroups.map((group) => (
-                          <option
-                            key={group.preparation_group_id}
-                            value={group.preparation_group_id}
-                          >
-                            {group.preparation_group_name || "-"}
-                          </option>
-                        ))}
-                      </select>
-
-                      {preparationGroupId && (
-                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                          <p className="text-xs font-semibold text-gray-500 mb-2">
-                            Preparações adicionadas
-                          </p>
-                          <ul className="text-sm text-gray-700 space-y-1">
-                            {preparations
-                              .filter(
-                                (preparation) =>
-                                  preparation.preparation_group_id ===
-                                  Number(preparationGroupId)
-                              )
-                              .map((preparation) => (
-                                <li key={preparation.preparation_id}>
-                                  {preparation.preparation_name1 || "-"}
-                                </li>
-                              ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-3">
-                        Condições de pedido
-                      </p>
-
-                      <p className="text-xs text-gray-500 mb-2">
-                        Selecione as condições em que este item estará disponível para pedido e como será enviado.
-                      </p>
-
-                      <div className="flex flex-col gap-3">
-                        {[
-                          ["reservation", "Reserva", "Apenas permite pedido com reserva identificada."],
-                          ["checkin", "Check-in", "Apenas permite pedido com check-in efetuado."],
-                          ["room", "Quarto", "Apenas permite pedido com reserva com quarto atribuido."],
-                          ["instantOrder", "Carrinho", "Permite adicionar itens ao carrinho. (EM DESENVOLVIMENTO)"],
-                        ].map(([field, label, description]) => (
-                          <label
-                            key={field}
-                            className={`flex items-center gap-3 text-sm ${
-                              field === "instantOrder"
-                                ? "text-gray-400 cursor-not-allowed"
-                                : "text-gray-700"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              name={field}
-                              checked={form[field]}
-                              onChange={handleChange}
-                              disabled={field === "instantOrder"}
-                              className="h-4 w-4 accent-red-500"
-                            />
-
-                            <span>{label}</span>
-
-                            <span className="relative group">
-                              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 text-[10px] font-semibold text-gray-500 cursor-help">
-                                i
-                              </span>
-
-                              <span className="absolute left-6 top-1/2 -translate-y-1/2 z-10 hidden group-hover:block w-56 rounded-md bg-gray-800 px-3 py-2 text-xs font-normal text-white shadow-lg">
-                                {description}
-                              </span>
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600 mb-3">
-                        Envio de notificações
-                      </p>
-                      <label className="flex items-center gap-3 text-sm text-gray-700">
-                        <input
-                          type="checkbox"
-                          name="sendStaychat"
-                          checked={form.sendStaychat}
-                          onChange={handleChange}
-                          className="h-4 w-4 accent-red-500"
-                        />
-                        <span>Stay Chat</span>
-                      </label>
-                      <input
-                        type="url"
-                        name="staychatWebhook"
-                        value={form.staychatWebhook}
-                        onChange={handleChange}
-                        placeholder="URL do webhook Stay Chat"
-                        className="mt-3 h-11 w-full rounded-lg border border-gray-300 px-3 outline-none focus:border-red-500"
-                      />
-                    </div>
-
                     <div>
                       <p className="text-sm font-semibold text-gray-600 mb-3">Imagem do Item</p>
                       <ImageUpload
-                        value={form.product_image_url}
+                        value={form.item_image_url}
                         onUpload={uploadImage}
                         onRemove={removeImage}
                       />
                     </div>
+
                   </>
                 )}
               </form>
@@ -788,7 +515,7 @@ export default function ProductsPage() {
               </button>
               <button
                 type="submit"
-                form="product-form"
+                form="item-form"
                 disabled={isSaving}
                 className={`px-4 py-2 rounded-lg ${isSaving ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-red-500 hover:bg-red-600 text-white"}`}
               >
