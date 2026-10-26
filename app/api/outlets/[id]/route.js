@@ -36,6 +36,23 @@ async function getSelectedScheduleId(body, existingOutlet, isRequired) {
   return schedule ? scheduleId : null;
 }
 
+async function getTableReservationItemId(value) {
+  const itemId = Number(value);
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) return null;
+
+  const item = await prisma.items.findFirst({
+    where: { item_id: itemId, item_type: "Reserva de mesa" },
+    select: { item_id: true },
+  });
+
+  return item?.item_id ?? null;
+}
+
+function getReservationDuration(value) {
+  const duration = Number(value);
+  return Number.isSafeInteger(duration) && duration > 0 ? duration : null;
+}
+
 // UPDATE
 export async function PUT(req, context) {
   try {
@@ -100,6 +117,33 @@ export async function PUT(req, context) {
       return Response.json(updated);
     }
 
+    const reservationItemIdValue =
+      body.reservation_item_id === undefined
+        ? existingOutlet.reservation_item_id
+        : body.reservation_item_id;
+    const reservationItemId = reservationEnabled
+      ? await getTableReservationItemId(reservationItemIdValue)
+      : null;
+    if (reservationEnabled && reservationItemId === null) {
+      return Response.json(
+        { error: "Selecione um item válido do tipo Reserva de mesa." },
+        { status: 400 }
+      );
+    }
+    const reservationDurationValue =
+      body.reservation_duration === undefined
+        ? existingOutlet.reservation_duration
+        : body.reservation_duration;
+    const reservationDuration = reservationEnabled
+      ? getReservationDuration(reservationDurationValue)
+      : null;
+    if (reservationEnabled && reservationDuration === null) {
+      return Response.json(
+        { error: "Indique uma duração válida em minutos para a reserva." },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.outlets.update({
       where: {
         outlet_id: id,
@@ -116,6 +160,8 @@ export async function PUT(req, context) {
         outlet_card_background: body.outlet_card_background || null,
         schedule_id: selectedScheduleId,
         schedule_visible_part: scheduleVisiblePart,
+        reservation_item_id: reservationItemId,
+        reservation_duration: reservationDuration,
         ...(body.schedule_visible !== undefined && {
           schedule_visible: toBooleanFlag(body.schedule_visible),
         }),

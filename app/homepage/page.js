@@ -355,7 +355,7 @@ export default function Homepage() {
           hasValidPath = false;
         } else {
           const accessPointsResponse = await fetch(
-            `/api/outlets/${requestedOutlet.outlet_id}/access-points`
+            `/api/accessPoints?outlet_id=${requestedOutlet.outlet_id}`
           );
           if (!accessPointsResponse.ok) {
             throw new Error(

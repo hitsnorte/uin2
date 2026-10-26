@@ -78,6 +78,7 @@ export default function OutletsPage() {
   const [languages, setLanguages] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [accessPointOptions, setAccessPointOptions] = useState([]);
+  const [tableReservationItems, setTableReservationItems] = useState([]);
 
   const [search, setSearch] = useState("");
 
@@ -109,6 +110,8 @@ export default function OutletsPage() {
     outlet_name5: "",
     area_id: "",
     schedule_id: "",
+    reservation_item_id: "",
+    reservation_duration: "",
     schedule_visible: false,
     schedule_visible_part: 2,
     associate_schedule: false,
@@ -135,12 +138,14 @@ export default function OutletsPage() {
       languagesResponse,
       schedulesResponse,
       accessPointsResponse,
+      itemsResponse,
     ] = await Promise.all([
       fetch("/api/outlets"),
       fetch("/api/areas"),
       fetch("/api/languages"),
       fetch("/api/schedules"),
       fetch("/api/accessPoints"),
+      fetch("/api/products"),
     ]);
 
     if (
@@ -148,17 +153,19 @@ export default function OutletsPage() {
       !areasResponse.ok ||
       !languagesResponse.ok ||
       !schedulesResponse.ok ||
-      !accessPointsResponse.ok
+      !accessPointsResponse.ok ||
+      !itemsResponse.ok
     ) {
       throw new Error("Não foi possível carregar os dados dos outlets.");
     }
 
-    const [outlets, areas, langs, schedules, accessPoints] = await Promise.all([
+    const [outlets, areas, langs, schedules, accessPoints, items] = await Promise.all([
       outletsResponse.json(),
       areasResponse.json(),
       languagesResponse.json(),
       schedulesResponse.json(),
       accessPointsResponse.json(),
+      itemsResponse.json(),
     ]);
 
     const normalizedLangs = langs
@@ -173,6 +180,9 @@ export default function OutletsPage() {
     setLanguages(normalizedLangs);
     setSchedules(schedules);
     setAccessPointOptions(accessPoints);
+    setTableReservationItems(
+      items.filter((item) => item.item_type === "Reserva de mesa")
+    );
   }
 
   useEffect(() => {
@@ -195,6 +205,8 @@ export default function OutletsPage() {
       outlet_name5: "",
       area_id: "",
       schedule_id: "",
+      reservation_item_id: "",
+      reservation_duration: "",
       schedule_visible: false,
       schedule_visible_part: 2,
       associate_schedule: false,
@@ -231,6 +243,10 @@ export default function OutletsPage() {
       outlet_name5: outlet.outlet_name5 || "",
       area_id: outlet.area_id || "",
       schedule_id: outlet.schedule_id ? String(outlet.schedule_id) : "",
+      reservation_item_id: outlet.reservation_item_id
+        ? String(outlet.reservation_item_id)
+        : "",
+      reservation_duration: outlet.reservation_duration ?? "",
       schedule_visible: outlet.schedule_visible ?? false,
       schedule_visible_part: outlet.schedule_visible_part ?? 2,
       associate_schedule: outlet.associate_schedule ?? false,
@@ -332,6 +348,11 @@ export default function OutletsPage() {
         ) {
           nextForm.access_points = true;
         }
+      }
+
+      if (name === "reservation" && !checked) {
+        nextForm.reservation_item_id = "";
+        nextForm.reservation_duration = "";
       }
 
       return nextForm;
@@ -465,6 +486,22 @@ export default function OutletsPage() {
       return;
     }
 
+    if (form.reservation && !form.reservation_item_id) {
+      alert("Selecione o item de reserva de mesa.");
+      setActiveTab("tableReservation");
+      return;
+    }
+
+    if (
+      form.reservation &&
+      (!Number.isSafeInteger(Number(form.reservation_duration)) ||
+        Number(form.reservation_duration) <= 0)
+    ) {
+      alert("Indique uma duração válida em minutos para a reserva.");
+      setActiveTab("tableReservation");
+      return;
+    }
+
     const requiresAccessPoints =
       form.reservation ||
       form.service_reservation ||
@@ -493,6 +530,12 @@ export default function OutletsPage() {
         ...form,
         area_id: Number(form.area_id),
         schedule_id: form.schedule_id ? Number(form.schedule_id) : null,
+        reservation_item_id: form.reservation
+          ? Number(form.reservation_item_id)
+          : null,
+        reservation_duration: form.reservation
+          ? Number(form.reservation_duration)
+          : null,
         schedule_visible_part: Number(form.schedule_visible_part),
         reservation: Number(form.reservation),
         order: Number(form.order),
@@ -532,7 +575,7 @@ export default function OutletsPage() {
       }
 
       const accessPointsResponse = await fetch(
-        `/api/outlets/${savedOutletId}/access-points`,
+        `/api/accessPoints?outlet_id=${savedOutletId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1083,6 +1126,80 @@ export default function OutletsPage() {
             ) : activeTab === "tableReservation" ? (
               <div className="flex flex-col gap-3">
                 <h3 className="text-sm text-gray-600 font-semibold">Configurações de reserva de mesa</h3>
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="reservation_item_id"
+                    className="text-xs text-gray-500 font-bold"
+                  >
+                    Item de reserva de mesa
+                  </label>
+                  <select
+                    id="reservation_item_id"
+                    name="reservation_item_id"
+                    value={form.reservation_item_id}
+                    onChange={handleChange}
+                    disabled={!form.reservation}
+                    required={Boolean(form.reservation)}
+                    className="h-10 border rounded-lg px-2"
+                  >
+                    <option value="">Selecionar item</option>
+                    {tableReservationItems.map((item) => (
+                      <option key={item.item_id} value={item.item_id}>
+                        {item.item_name1 || `Item ${item.item_id}`}
+                      </option>
+                    ))}
+                  </select>
+                  {tableReservationItems.length === 0 && (
+                    <p className="text-xs text-amber-700">
+                      Não existem itens do tipo “Reserva de mesa”.
+                    </p>
+                  )}
+                  {form.reservation_item_id && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor="reservation_duration"
+                          className="text-xs text-gray-500 font-bold"
+                        >
+                          Duração (minutos)
+                        </label>
+                        <input
+                          id="reservation_duration"
+                          name="reservation_duration"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={form.reservation_duration}
+                          onChange={handleChange}
+                          required={Boolean(form.reservation)}
+                          disabled={!form.reservation}
+                          className="h-10 border rounded-lg px-2 disabled:bg-gray-100"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label
+                          htmlFor="reservation_slot_duration"
+                          className="text-xs text-gray-500 font-bold"
+                        >
+                          Duração da slot (minutos)
+                        </label>
+                        <input
+                          id="reservation_slot_duration"
+                          type="number"
+                          value={
+                            schedules.find(
+                              (schedule) =>
+                                Number(schedule.schedule_id) ===
+                                Number(form.schedule_id)
+                            )?.slotDuration ?? ""
+                          }
+                          readOnly
+                          className="h-10 border rounded-lg px-2 bg-gray-100 text-gray-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col gap-1">
                   <label htmlFor="reservation_schedule_id" className="text-xs text-gray-500 font-bold">
                     Horário
