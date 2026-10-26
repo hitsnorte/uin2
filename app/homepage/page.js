@@ -25,9 +25,16 @@ function getRequestedId(searchParams, key) {
   return Number.isInteger(value) && value > 0 ? value : NaN;
 }
 
-function getTodayScheduleLabel(schedule) {
+function getTodayScheduleLabel(schedule, visiblePart = 2) {
   if (!schedule || !schedule.days) return null;
 
+  const parsedVisiblePart = Number(visiblePart);
+  const part =
+    Number.isInteger(parsedVisiblePart) &&
+    parsedVisiblePart >= 0 &&
+    parsedVisiblePart <= 2
+      ? parsedVisiblePart
+      : 2;
   const dayKeys = [
     "domingo",
     "segunda",
@@ -41,8 +48,20 @@ function getTodayScheduleLabel(schedule) {
   const dayTimes = schedule.days[dayKeys[dayIndex]];
   const intervals = Array.isArray(dayTimes)
     ? dayTimes
-        .filter((time) => time?.start && time?.end)
-        .map((time) => `${time.start} - ${time.end}`)
+        .filter((time) =>
+          part === 0
+            ? time?.start
+            : part === 1
+              ? time?.end
+              : time?.start && time?.end
+        )
+        .map((time) =>
+          part === 0
+            ? time.start
+            : part === 1
+              ? time.end
+              : `${time.start} - ${time.end}`
+        )
     : [];
 
   return `${intervals.length ? intervals.join(", ") : "Encerrado"}`;
@@ -236,7 +255,10 @@ export default function Homepage() {
           )
           .map((outlet) => [
             outlet.outlet_id,
-            getTodayScheduleLabel(schedulesById.get(Number(outlet.schedule_id))),
+            getTodayScheduleLabel(
+              schedulesById.get(Number(outlet.schedule_id)),
+              outlet.schedule_visible_part ?? 2
+            ),
           ])
           .filter(([, label]) => label)
       );
@@ -1181,7 +1203,7 @@ export default function Homepage() {
                         setSelectedSubmenu(null);
                       }
                     }}
-                    className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer hover:scale-[1.02] transition overflow-hidden"
+                    className="w-full min-h-[45vh] sm:min-h-0 sm:aspect-[4/3] rounded-2xl flex items-center justify-center font-semibold cursor-pointer hover:scale-[1.02] transition overflow-hidden "
                     style={{
                       background: getCardColor(rowIndex * 10 + i),
                       backgroundImage: `url("${encodeURI(
@@ -1193,6 +1215,17 @@ export default function Homepage() {
                       fontFamily: theme.cardTextFont,
                     }}
                   >
+                    <div className="flex flex-col items-stretch justify-center gap-2 w-max h-full backdrop-blur-[1px]">
+                    <div
+                      className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-3 backdrop-blur-[1px]"
+                      style={{
+                        color: theme.cardTextColor,
+                        fontSize: `${theme.cardTextSize}px`
+                      }}
+                    >
+                      <span>{getName(item, cardNamePrefix)}</span>
+                    </div>
+
                     <div
                       className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
                       style={{
@@ -1200,7 +1233,6 @@ export default function Homepage() {
                         fontSize: `${theme.cardTextSize}px`
                       }}
                     >
-                      <span>{getName(item, cardNamePrefix)}</span>
                       {selectedArea !== null &&
                         outletScheduleLabels[item.outlet_id] && (
                           <span className="text-xs font-bold flex items-center justify-center gap-1">
@@ -1208,6 +1240,7 @@ export default function Homepage() {
                           </span>
                         )}
                     </div>
+                  </div>
                   </div>
                 ))}
               </div>

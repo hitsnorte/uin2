@@ -8,6 +8,14 @@ function toNumericFlag(value) {
   return toBooleanFlag(value) ? 1 : 0;
 }
 
+function getScheduleVisiblePart(value, defaultValue = 2) {
+  if (value === undefined) return defaultValue;
+  if (value === null || value === "") return null;
+
+  const part = Number(value);
+  return Number.isInteger(part) && part >= 0 && part <= 2 ? part : null;
+}
+
 async function getSelectedScheduleId(body, existingOutlet, isRequired) {
   if (!isRequired) {
     return body.schedule_id === undefined
@@ -45,6 +53,17 @@ export async function PUT(req, context) {
 
     if (!existingOutlet) {
       return Response.json({ error: "Outlet não encontrado" }, { status: 404 });
+    }
+
+    const scheduleVisiblePart = getScheduleVisiblePart(
+      body.schedule_visible_part,
+      existingOutlet.schedule_visible_part ?? 2
+    );
+    if (scheduleVisiblePart === null) {
+      return Response.json(
+        { error: "A parte do horário visível é inválida." },
+        { status: 400 }
+      );
     }
 
     const reservationEnabled =
@@ -96,6 +115,7 @@ export async function PUT(req, context) {
         visible: body.visible ?? true,
         outlet_card_background: body.outlet_card_background || null,
         schedule_id: selectedScheduleId,
+        schedule_visible_part: scheduleVisiblePart,
         ...(body.schedule_visible !== undefined && {
           schedule_visible: toBooleanFlag(body.schedule_visible),
         }),

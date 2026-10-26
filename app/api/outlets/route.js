@@ -8,6 +8,14 @@ function toNumericFlag(value) {
   return toBooleanFlag(value) ? 1 : 0;
 }
 
+function getScheduleVisiblePart(value) {
+  if (value === undefined) return 2;
+  if (value === null || value === "") return null;
+
+  const part = Number(value);
+  return Number.isInteger(part) && part >= 0 && part <= 2 ? part : null;
+}
+
 async function getSelectedScheduleId(body, isRequired) {
   if (!isRequired && !body.schedule_id) return null;
 
@@ -71,6 +79,16 @@ export async function POST(req) {
 
     const scheduleRequired =
       toBooleanFlag(reservation) || toBooleanFlag(associate_schedule);
+    const scheduleVisiblePart = getScheduleVisiblePart(
+      body.schedule_visible_part
+    );
+    if (scheduleVisiblePart === null) {
+      return Response.json(
+        { error: "A parte do horário visível é inválida." },
+        { status: 400 }
+      );
+    }
+
     const selectedScheduleId = await getSelectedScheduleId(body, scheduleRequired);
     if (scheduleRequired && selectedScheduleId === null) {
       return Response.json(
@@ -94,6 +112,7 @@ export async function POST(req) {
         outlet_card_background: outlet_card_background || null,
         schedule_id: selectedScheduleId,
         schedule_visible: toBooleanFlag(schedule_visible),
+        schedule_visible_part: scheduleVisiblePart,
         associate_schedule: toBooleanFlag(associate_schedule),
         access_points: toBooleanFlag(access_points),
         reservation: toNumericFlag(reservation),

@@ -250,7 +250,7 @@ model Outlets {
   order                  Int?
   schedule_id            Int?
   schedule_visible       Boolean      @default(false)
-  schedule_visible_part  Int?         @default(0)
+  schedule_visible_part  Int?         @default(2)
   access_points          Boolean      @default(false)
   associate_schedule     Boolean      @default(false)
   instant_order          Boolean      @default(false)

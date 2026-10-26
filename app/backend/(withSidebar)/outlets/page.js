@@ -110,6 +110,7 @@ export default function OutletsPage() {
     area_id: "",
     schedule_id: "",
     schedule_visible: false,
+    schedule_visible_part: 2,
     associate_schedule: false,
     access_points: false,
     reservation: false,
@@ -195,6 +196,7 @@ export default function OutletsPage() {
       area_id: "",
       schedule_id: "",
       schedule_visible: false,
+      schedule_visible_part: 2,
       associate_schedule: false,
       access_points: false,
       reservation: false,
@@ -230,6 +232,7 @@ export default function OutletsPage() {
       area_id: outlet.area_id || "",
       schedule_id: outlet.schedule_id ? String(outlet.schedule_id) : "",
       schedule_visible: outlet.schedule_visible ?? false,
+      schedule_visible_part: outlet.schedule_visible_part ?? 2,
       associate_schedule: outlet.associate_schedule ?? false,
       access_points: outlet.access_points ?? false,
       reservation: outlet.reservation === 1 || outlet.reservation === "1",
@@ -490,6 +493,7 @@ export default function OutletsPage() {
         ...form,
         area_id: Number(form.area_id),
         schedule_id: form.schedule_id ? Number(form.schedule_id) : null,
+        schedule_visible_part: Number(form.schedule_visible_part),
         reservation: Number(form.reservation),
         order: Number(form.order),
         outlet_card_background: imageUrl,
@@ -950,6 +954,24 @@ export default function OutletsPage() {
                       />
                       Horário visível
                     </label>
+                    {form.schedule_visible && (
+                      <div className="flex flex-col gap-1">
+                        <label htmlFor="general_schedule_visible_part" className="text-xs text-gray-500 font-bold">
+                          Parte do horário visível
+                        </label>
+                        <select
+                          id="general_schedule_visible_part"
+                          name="schedule_visible_part"
+                          value={form.schedule_visible_part}
+                          onChange={handleChange}
+                          className="h-10 border rounded-lg px-2"
+                        >
+                          <option value={0}>Apenas hora de início</option>
+                          <option value={1}>Apenas hora de fim</option>
+                          <option value={2}>Início e fim</option>
+                        </select>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -1091,6 +1113,24 @@ export default function OutletsPage() {
                   />
                   Horário visível
                 </label>
+                {form.schedule_visible && (
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="reservation_schedule_visible_part" className="text-xs text-gray-500 font-bold">
+                      Parte do horário visível
+                    </label>
+                    <select
+                      id="reservation_schedule_visible_part"
+                      name="schedule_visible_part"
+                      value={form.schedule_visible_part}
+                      onChange={handleChange}
+                      className="h-10 border rounded-lg px-2"
+                    >
+                      <option value={0}>Apenas hora de início</option>
+                      <option value={1}>Apenas hora de fim</option>
+                      <option value={2}>Início e fim</option>
+                    </select>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-3">
