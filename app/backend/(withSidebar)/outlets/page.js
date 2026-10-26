@@ -20,6 +20,58 @@ function getScheduleName(schedule) {
   return data?.name || `Horário ${schedule.schedule_id}`;
 }
 
+async function getOutletAccessRooms(outletId) {
+  const [pointsResponse, groupsResponse] = await Promise.all([
+    fetch("/api/accessPoints"),
+    fetch("/api/accessPointGroups"),
+  ]);
+
+  if (!pointsResponse.ok || !groupsResponse.ok) {
+    throw new Error("Não foi possível carregar os pontos de acesso.");
+  }
+
+  const [points, groups] = await Promise.all([
+    pointsResponse.json(),
+    groupsResponse.json(),
+  ]);
+  const outletGroups = groups.filter(
+    (group) => Number(group.outlet_id) === Number(outletId)
+  );
+  const outletGroupIds = new Set(
+    outletGroups.map((group) => group.access_point_group_id)
+  );
+  const rooms = outletGroups.map((group) => ({
+    group,
+    points: points.filter(
+      (point) => point.access_point_group_id === group.access_point_group_id
+    ),
+  }));
+  const ungroupedPoints = points.filter(
+    (point) =>
+      Number(point.outlet_id) === Number(outletId) &&
+      point.access_point_group_id == null
+  );
+
+  if (ungroupedPoints.length) {
+    rooms.push({
+      group: {
+        access_point_group_id: null,
+        access_point_group_name: "Sala 1",
+      },
+      points: ungroupedPoints,
+    });
+  }
+
+  return rooms.map((room) => ({
+    ...room,
+    points: room.points.filter(
+      (point) =>
+        Number(point.outlet_id) === Number(outletId) ||
+        outletGroupIds.has(point.access_point_group_id)
+    ),
+  }));
+}
+
 export default function OutletsPage() {
   const [outlets, setOutlets] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -201,15 +253,10 @@ export default function OutletsPage() {
     setShowModal(true);
 
     try {
-      const response = await fetch(`/api/outlets/${outlet.outlet_id}/access-points`);
-      if (!response.ok) {
-        throw new Error("Não foi possível carregar os pontos de acesso.");
-      }
-
-      const data = await response.json();
+      const rooms = await getOutletAccessRooms(outlet.outlet_id);
       setAccessRooms(
-        data.rooms?.length
-          ? data.rooms.map((room) => ({
+        rooms.length
+          ? rooms.map((room) => ({
               id: room.group.access_point_group_id,
               name: room.group.access_point_group_name || "Sala",
               points: room.points.map((point) => ({
@@ -573,7 +620,10 @@ export default function OutletsPage() {
     accessRooms.flatMap((room) => room.points.map((point) => point.id))
   );
   const availableAccessPoints = accessPointOptions.filter(
-    (point) => point.outlet_id == null && !selectedAccessPointIds.has(point.access_point_id)
+    (point) =>
+      point.outlet_id == null &&
+      point.access_point_group_id == null &&
+      !selectedAccessPointIds.has(point.access_point_id)
   );
   const selectedAccessRoom = accessRooms[selectedRoomIndex] || {
     id: null,
@@ -616,20 +666,14 @@ export default function OutletsPage() {
     setIsLoadingQrAccessPoints(true);
 
     try {
-      const response = await fetch(
-        `/api/outlets/${outlet.outlet_id}/access-points`
-      );
-      if (!response.ok) {
-        throw new Error("Não foi possível carregar os pontos de acesso.");
-      }
-
-      const data = await response.json();
       setQrAccessPoints(
-        data.points.map((point) => ({
-          id: point.access_point_id,
-          name: point.access_point_name || `Ponto ${point.access_point_id}`,
-          roomName: point.roomName || "Área",
-        }))
+        (await getOutletAccessRooms(outlet.outlet_id)).flatMap((room) =>
+          room.points.map((point) => ({
+            id: point.access_point_id,
+            name: point.access_point_name || `Ponto ${point.access_point_id}`,
+            roomName: room.group.access_point_group_name || "Área",
+          }))
+        )
       );
     } catch (error) {
       console.error(error);
