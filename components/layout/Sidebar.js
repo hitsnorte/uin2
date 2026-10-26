@@ -25,6 +25,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { name: "Grupos de pontos de acesso", path: "/backend/accessPointGroups" },
     { name: "Subgrupos de pontos de acesso", path: "/backend/accessPointSubGroups" },
     { name: "Pontos de acesso", path: "/backend/accessPoints" },
+    { name: "Tipologias", path: "/backend/typologies" },
     {
       name: "Configurações",
       path: "/backend/advancedConfigurations",
@@ -160,4 +161,3 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     </div>
   );
 }
-

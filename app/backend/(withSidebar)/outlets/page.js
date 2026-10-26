@@ -25,6 +25,7 @@ export default function OutletsPage() {
   const [areas, setAreas] = useState([]);
   const [languages, setLanguages] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [accessPointOptions, setAccessPointOptions] = useState([]);
 
   const [search, setSearch] = useState("");
 
@@ -34,7 +35,7 @@ export default function OutletsPage() {
   const [accessRooms, setAccessRooms] = useState([]);
   const [selectedRoomIndex, setSelectedRoomIndex] = useState(0);
   const [isEditingRoomName, setIsEditingRoomName] = useState(false);
-  const [accessPointName, setAccessPointName] = useState("");
+  const [accessPointId, setAccessPointId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState(null);
@@ -75,22 +76,36 @@ export default function OutletsPage() {
   // ---------------- FETCH ----------------
 
   async function fetchData() {
-    const [outletsResponse, areasResponse, languagesResponse, schedulesResponse] = await Promise.all([
+    const [
+      outletsResponse,
+      areasResponse,
+      languagesResponse,
+      schedulesResponse,
+      accessPointsResponse,
+    ] = await Promise.all([
       fetch("/api/outlets"),
       fetch("/api/areas"),
       fetch("/api/languages"),
       fetch("/api/schedules"),
+      fetch("/api/accessPoints"),
     ]);
 
-    if (!schedulesResponse.ok) {
-      throw new Error("Não foi possível carregar os horários.");
+    if (
+      !outletsResponse.ok ||
+      !areasResponse.ok ||
+      !languagesResponse.ok ||
+      !schedulesResponse.ok ||
+      !accessPointsResponse.ok
+    ) {
+      throw new Error("Não foi possível carregar os dados dos outlets.");
     }
 
-    const [outlets, areas, langs, schedules] = await Promise.all([
+    const [outlets, areas, langs, schedules, accessPoints] = await Promise.all([
       outletsResponse.json(),
       areasResponse.json(),
       languagesResponse.json(),
       schedulesResponse.json(),
+      accessPointsResponse.json(),
     ]);
 
     const normalizedLangs = langs
@@ -104,6 +119,7 @@ export default function OutletsPage() {
     setAreas(areas);
     setLanguages(normalizedLangs);
     setSchedules(schedules);
+    setAccessPointOptions(accessPoints);
   }
 
   useEffect(() => {
@@ -140,7 +156,7 @@ export default function OutletsPage() {
     setAccessRooms([{ id: null, name: "Sala 1", points: [] }]);
     setSelectedRoomIndex(0);
     setIsEditingRoomName(false);
-    setAccessPointName("");
+    setAccessPointId("");
     setImageFile(null);
     setImagePreview(null);
     setExistingImage(null);
@@ -175,7 +191,7 @@ export default function OutletsPage() {
     setAccessRooms([{ id: null, name: "Sala 1", points: [] }]);
     setSelectedRoomIndex(0);
     setIsEditingRoomName(false);
-    setAccessPointName("");
+    setAccessPointId("");
     setImageFile(null);
 
     setImagePreview(outlet.outlet_image || null);
@@ -190,19 +206,20 @@ export default function OutletsPage() {
         throw new Error("Não foi possível carregar os pontos de acesso.");
       }
 
-      const layout = await response.json();
-      if (layout.rooms?.length) {
-        setAccessRooms(
-          layout.rooms.map((room) => ({
-            id: room.group.access_point_group_id,
-            name: room.group.access_point_group_name || "Sala",
-            points: room.points.map((point) => ({
-              id: point.access_point_id,
-              name: point.access_point_name || "",
-            })),
-          }))
-        );
-      }
+      const data = await response.json();
+      setAccessRooms(
+        data.rooms?.length
+          ? data.rooms.map((room) => ({
+              id: room.group.access_point_group_id,
+              name: room.group.access_point_group_name || "Sala",
+              points: room.points.map((point) => ({
+                id: point.access_point_id,
+                name: point.access_point_name || `Ponto ${point.access_point_id}`,
+              })),
+            }))
+          : [{ id: null, name: "Sala 1", points: [] }]
+      );
+      setSelectedRoomIndex(0);
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -274,23 +291,43 @@ export default function OutletsPage() {
       setActiveTab("general");
     }
 
-    if (name === "access_points" && !checked) {
+    const accessPointsRequired =
+      form.reservation ||
+      form.service_reservation ||
+      form.order ||
+      form.instant_order;
+    if (name === "access_points" && !checked && !accessPointsRequired) {
       setActiveTab("general");
     }
   }
 
   function addAccessPoint() {
-    const name = accessPointName.trim();
-    if (!name) return;
+    if (!accessPointId) return;
+
+    const accessPoint = accessPointOptions.find(
+      (point) => String(point.access_point_id) === accessPointId
+    );
+    if (!accessPoint) return;
 
     setAccessRooms((currentRooms) =>
       currentRooms.map((room, index) =>
         index === selectedRoomIndex
-          ? { ...room, points: [...room.points, { id: null, name }] }
+          ? {
+              ...room,
+              points: [
+                ...room.points,
+                {
+                  id: accessPoint.access_point_id,
+                  name:
+                    accessPoint.access_point_name ||
+                    `Ponto ${accessPoint.access_point_id}`,
+                },
+              ],
+            }
           : room
       )
     );
-    setAccessPointName("");
+    setAccessPointId("");
   }
 
   function addSpatialArea() {
@@ -301,7 +338,7 @@ export default function OutletsPage() {
     ]);
     setSelectedRoomIndex(accessRooms.length);
     setIsEditingRoomName(false);
-    setAccessPointName("");
+    setAccessPointId("");
   }
 
   function updateSelectedRoom(updater) {
@@ -383,15 +420,12 @@ export default function OutletsPage() {
       form.service_reservation ||
       form.order ||
       form.instant_order;
-    const hasAssociatedAccessPoints = accessRooms.some((room) =>
-      room.points.some((point) => point.name.trim())
+    const hasAssociatedAccessPoints = accessRooms.some(
+      (room) => room.points.length > 0
     );
 
-    if (
-      requiresAccessPoints &&
-      (!form.access_points || !hasAssociatedAccessPoints)
-    ) {
-      alert("Configure pelo menos um ponto de acesso para as opções selecionadas.");
+    if (requiresAccessPoints && (!form.access_points || !hasAssociatedAccessPoints)) {
+      alert("Selecione pelo menos um ponto de acesso para as opções selecionadas.");
       setActiveTab(form.access_points ? "accessPoints" : "general");
       return;
     }
@@ -446,24 +480,22 @@ export default function OutletsPage() {
         }
       }
 
-      if (form.access_points) {
-        const accessPointsResponse = await fetch(
-          `/api/outlets/${savedOutletId}/access-points`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              rooms: accessRooms,
-            }),
-          }
-        );
-
-        if (!accessPointsResponse.ok) {
-          const result = await accessPointsResponse.json().catch(() => null);
-          throw new Error(
-            result?.error || "Não foi possível guardar os pontos de acesso."
-          );
+      const accessPointsResponse = await fetch(
+        `/api/outlets/${savedOutletId}/access-points`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rooms: form.access_points ? accessRooms : [],
+          }),
         }
+      );
+
+      if (!accessPointsResponse.ok) {
+        const result = await accessPointsResponse.json().catch(() => null);
+        throw new Error(
+          result?.error || "Não foi possível guardar os pontos de acesso."
+        );
       }
 
       setShowModal(false);
@@ -537,6 +569,17 @@ export default function OutletsPage() {
         .includes(search.toLowerCase());
     })
   );
+  const selectedAccessPointIds = new Set(
+    accessRooms.flatMap((room) => room.points.map((point) => point.id))
+  );
+  const availableAccessPoints = accessPointOptions.filter(
+    (point) => point.outlet_id == null && !selectedAccessPointIds.has(point.access_point_id)
+  );
+  const selectedAccessRoom = accessRooms[selectedRoomIndex] || {
+    id: null,
+    name: `Sala ${selectedRoomIndex + 1}`,
+    points: [],
+  };
 
   function getAreaName(id) {
     const cat = areas.find((c) => c.area_id === id);
@@ -580,20 +623,14 @@ export default function OutletsPage() {
         throw new Error("Não foi possível carregar os pontos de acesso.");
       }
 
-      const layout = await response.json();
-      const points = Array.isArray(layout.rooms)
-        ? layout.rooms.flatMap((room) =>
-            (Array.isArray(room.points) ? room.points : [])
-              .filter((point) => point.access_point_id != null)
-              .map((point) => ({
-                id: point.access_point_id,
-                name: point.access_point_name || `Ponto ${point.access_point_id}`,
-                roomName: room.group?.access_point_group_name || "Área",
-              }))
-          )
-        : [];
-
-      setQrAccessPoints(points);
+      const data = await response.json();
+      setQrAccessPoints(
+        data.points.map((point) => ({
+          id: point.access_point_id,
+          name: point.access_point_name || `Ponto ${point.access_point_id}`,
+          roomName: point.roomName || "Área",
+        }))
+      );
     } catch (error) {
       console.error(error);
       alert(error.message);
@@ -614,12 +651,6 @@ export default function OutletsPage() {
     link.download = `outlet-${qrOutlet?.outlet_id}${pointSuffix}-qrcode.png`;
     link.click();
   }
-
-  const selectedAccessRoom = accessRooms[selectedRoomIndex] || {
-    id: null,
-    name: `Sala ${selectedRoomIndex + 1}`,
-    points: [],
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1028,7 +1059,7 @@ export default function OutletsPage() {
                       onClick={() => {
                         setSelectedRoomIndex(index);
                         setIsEditingRoomName(false);
-                        setAccessPointName("");
+                        setAccessPointId("");
                       }}
                       aria-pressed={selectedRoomIndex === index}
                       className={`rounded-lg border px-3 py-2 text-sm ${
@@ -1088,35 +1119,44 @@ export default function OutletsPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <input
-                      value={accessPointName}
-                      onChange={(event) => setAccessPointName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addAccessPoint();
-                        }
-                      }}
-                      placeholder="Nome do ponto de acesso"
-                      maxLength={150}
+                    <select
+                      value={accessPointId}
+                      onChange={(event) => setAccessPointId(event.target.value)}
                       className="h-10 min-w-0 flex-1 rounded-lg border bg-white px-3"
-                    />
+                    >
+                      <option value="">Selecionar ponto de acesso</option>
+                      {availableAccessPoints.map((point) => (
+                        <option
+                          key={point.access_point_id}
+                          value={point.access_point_id}
+                        >
+                          {point.access_point_name ||
+                            `Ponto ${point.access_point_id}`}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       onClick={addAccessPoint}
-                      disabled={!accessPointName.trim()}
-                      className="rounded-lg bg-red-500 px-4 text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      disabled={!accessPointId}
+                      className="shrink-0 rounded-lg bg-red-500 px-2.5 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                       + Adicionar ponto
                     </button>
                   </div>
+
+                  {availableAccessPoints.length === 0 && (
+                    <p className="mt-2 text-sm text-amber-700">
+                      Não existem pontos de acesso disponíveis para associar.
+                    </p>
+                  )}
 
                   <div className="mt-4 min-h-48 overflow-hidden rounded-lg border border-slate-300 bg-white">
                     {selectedAccessRoom.points.length ? (
                       <ul className="divide-y divide-slate-200">
                         {selectedAccessRoom.points.map((point, index) => (
                           <li
-                            key={point.id ?? `new-${index}`}
+                            key={point.id}
                             className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700"
                           >
                             <span className="flex items-center gap-2">
@@ -1143,7 +1183,7 @@ export default function OutletsPage() {
                       </ul>
                     ) : (
                       <div className="flex min-h-40 items-center justify-center text-sm text-gray-400">
-                        Adicione pontos de acesso a esta sala.
+                        Selecione pontos de acesso para esta área espacial.
                       </div>
                     )}
                   </div>
@@ -1251,7 +1291,7 @@ export default function OutletsPage() {
                 </option>
                 {qrAccessPoints.map((point) => (
                   <option key={point.id} value={point.id}>
-                    {point.roomName} - {point.name}
+                    {point.name}
                   </option>
                 ))}
               </select>

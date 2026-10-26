@@ -26,6 +26,7 @@ model AccessPoints {
   active                    Boolean? @default(true)
   outlet_id                 Int?
   access_point_group_id     Int?
+  typology_id               Int?
 }
 
 model EmailSettings {
@@ -235,27 +236,29 @@ model Menus {
 }
 
 model Outlets {
-  outlet_id              Int      @id @default(autoincrement())
+  outlet_id              Int          @id @default(autoincrement())
   area_id                Int?
-  outlet_name1           String?  @db.VarChar(150)
-  outlet_name2           String?  @db.VarChar(150)
-  outlet_name3           String?  @db.VarChar(150)
-  outlet_name4           String?  @db.VarChar(150)
-  outlet_name5           String?  @db.VarChar(150)
-  visible                Boolean? @default(true)
-  outlet_icon            String?  @db.VarChar(255)
-  outlet_card_background String?  @db.VarChar(255)
+  outlet_name1           String?      @db.VarChar(150)
+  outlet_name2           String?      @db.VarChar(150)
+  outlet_name3           String?      @db.VarChar(150)
+  outlet_name4           String?      @db.VarChar(150)
+  outlet_name5           String?      @db.VarChar(150)
+  visible                Boolean?     @default(true)
+  outlet_icon            String?      @db.VarChar(255)
+  outlet_card_background String?      @db.VarChar(255)
   reservation            Int?
   order                  Int?
   schedule_id            Int?
-  schedule_visible       Boolean  @default(false)
-  access_points          Boolean  @default(false)
-  associate_schedule     Boolean  @default(false)
-  instant_order          Boolean  @default(false)
-  service_reservation    Boolean  @default(false)
-  takeaway_order         Boolean  @default(false)
+  schedule_visible       Boolean      @default(false)
+  schedule_visible_part  Boolean?     @default(false)
+  access_points          Boolean      @default(false)
+  associate_schedule     Boolean      @default(false)
+  instant_order          Boolean      @default(false)
+  service_reservation    Boolean      @default(false)
+  takeaway_order         Boolean      @default(false)
   Menus                  Menus[]
-  Areas                  Areas?   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
+  Areas                  Areas?       @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
+  typologies             typologies[]
 
   @@index([area_id], map: "area_id")
 }
@@ -334,4 +337,30 @@ model Items {
   allowReservations String? @db.VarChar(1)
   scheduleID        String? @db.VarChar(1)
   preparation       Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model availability {
+  availability_id    BigInt     @id @default(autoincrement())
+  typology_id        BigInt
+  availability_date  DateTime   @db.Date
+  start_time         DateTime   @db.Time(0)
+  end_time           DateTime   @db.Time(0)
+  total_capacity     Int
+  available_capacity Int
+  updated_at         DateTime   @default(now()) @db.Timestamp(0)
+  typologies         typologies @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_availability_typologies")
+
+  @@unique([typology_id, availability_date, start_time], map: "uq_availability_typology_date_start")
+  @@index([availability_date, typology_id], map: "idx_availability_date_typology")
+}
+
+model typologies {
+  typology_id  BigInt         @id @default(autoincrement())
+  outlet_id    Int
+  name         String         @db.VarChar(100)
+  availability availability[]
+  Outlets      Outlets        @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_typologies_outlets")
+
+  @@unique([outlet_id, name], map: "uq_typologies_outlet_name")
 }

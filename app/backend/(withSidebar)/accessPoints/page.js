@@ -9,39 +9,41 @@ const emptyForm = {
     products: "",
     product_cat: "",
     activities: "",
-    active: true
+    active: true,
+    typology_id: ""
 };
 
 export default function AccessPointsPage() {
     const [points, setPoints] = useState([]);
-    const [subGroups, setSubGroups] = useState([]);
-    const [groups, setGroups] = useState([]);
+    const [typologies, setTypologies] = useState([]);
     const [search, setSearch] = useState("");
     const [form, setForm] = useState(emptyForm);
-    const [subGroupId, setSubGroupId] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
 
     async function fetchData() {
-        const [
-            pointsResponse,
-            subGroupsResponse,
-            groupsResponse
-        ] = await Promise.all([
+        const [pointsResponse, typologiesResponse] = await Promise.all([
             fetch("/api/accessPoints"),
-            fetch("/api/accessPointSubGroups"),
-            fetch("/api/accessPointGroups")
+            fetch("/api/typologies")
         ]);
-
-        setPoints(await pointsResponse.json());
-        setSubGroups(await subGroupsResponse.json());
-        setGroups(await groupsResponse.json());
+        if (!pointsResponse.ok || !typologiesResponse.ok) {
+            throw new Error("Não foi possível carregar os pontos de acesso e tipologias.");
+        }
+        const [pointsData, typologiesData] = await Promise.all([
+            pointsResponse.json(),
+            typologiesResponse.json()
+        ]);
+        setPoints(pointsData);
+        setTypologies(typologiesData);
     }
 
     useEffect(() => {
-        fetchData();
+        fetchData().catch((error) => {
+            console.error(error);
+            alert(error.message || "Erro ao carregar pontos de acesso.");
+        });
     }, []);
 
     function openCreate() {
@@ -49,7 +51,6 @@ export default function AccessPointsPage() {
         setForm({
             ...emptyForm
         });
-        setSubGroupId("");
         setShowModal(true);
     }
 
@@ -63,18 +64,13 @@ export default function AccessPointsPage() {
 
     function openEdit(point) {
         setEditingId(point.access_point_id);
-        setSubGroupId(
-            point.access_point_sub_group_id
-                ? String(point.access_point_sub_group_id)
-                : ""
-        );
-
         setForm({
             access_point_name: point.access_point_name || "",
             products: toText(point.products),
             product_cat: toText(point.product_cat),
             activities: toText(point.activities),
-            active: point.active !== false
+            active: point.active !== false,
+            typology_id: point.typology_id == null ? "" : String(point.typology_id)
         });
 
         setShowModal(true);
@@ -97,12 +93,12 @@ export default function AccessPointsPage() {
     async function handleSubmit(event) {
         event.preventDefault();
 
-        if (!form.access_point_name.trim() || !subGroupId) return;
+        if (!form.access_point_name.trim() || !form.typology_id) return;
 
         setIsSaving(true);
 
         try {
-            await fetch(
+            const response = await fetch(
                 editingId
                     ? `/api/accessPoints/${editingId}`
                     : "/api/accessPoints",
@@ -113,16 +109,21 @@ export default function AccessPointsPage() {
                     },
                     body: JSON.stringify({
                         ...form,
-                        access_point_sub_group_id: Number(subGroupId)
+                        typology_id: Number(form.typology_id)
                     })
                 }
             );
+
+            if (!response.ok) {
+                const result = await response.json().catch(() => null);
+                throw new Error(result?.error || "Não foi possível guardar o ponto de acesso.");
+            }
 
             setShowModal(false);
             await fetchData();
         } catch (error) {
             console.error(error);
-            alert("JSON inválido nos campos de configuração");
+            alert(error.message || "Não foi possível guardar o ponto de acesso.");
         } finally {
             setIsSaving(false);
         }
@@ -185,28 +186,14 @@ export default function AccessPointsPage() {
                         <tr>
                             <th className="p-4">ID</th>
                             <th className="p-4">Nome</th>
-                            <th className="p-4">Subgrupo</th>
-                            <th className="p-4">Grupo</th>
+                            <th className="p-4">Tipologia</th>
                             <th className="p-4">Estado</th>
                             <th className="p-4 text-right">Ações</th>
                         </tr>
                     </thead>
 
                     <tbody>
-                        {filtered.map((point) => {
-                            const subGroup = subGroups.find(
-                                (item) =>
-                                    item.access_point_sub_group_id ===
-                                    point.access_point_sub_group_id
-                            );
-
-                            const group = groups.find(
-                                (item) =>
-                                    item.access_point_group_id ===
-                                    subGroup?.access_point_group_id
-                            );
-
-                            return (
+                        {filtered.map((point) => (
                                 <tr
                                     key={point.access_point_id}
                                     className="border-t border-gray-100"
@@ -220,11 +207,10 @@ export default function AccessPointsPage() {
                                     </td>
 
                                     <td className="p-4 text-gray-600">
-                                        {subGroup?.access_point_group_name || "-"}
-                                    </td>
-
-                                    <td className="p-4 text-gray-600">
-                                        {group?.access_point_group_name || "-"}
+                                        {typologies.find(
+                                            (typology) =>
+                                                typology.typology_id === String(point.typology_id)
+                                        )?.name || "-"}
                                     </td>
 
                                     <td className="p-4 text-gray-600">
@@ -262,8 +248,7 @@ export default function AccessPointsPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            );
-                        })}
+                            ))}
                     </tbody>
                 </table>
             </div>
@@ -300,41 +285,21 @@ export default function AccessPointsPage() {
                             />
 
                             <select
-                                value={subGroupId}
-                                onChange={(event) =>
-                                    setSubGroupId(event.target.value)
-                                }
+                                name="typology_id"
+                                value={form.typology_id}
+                                onChange={handleChange}
                                 required
                                 className="h-11 border border-gray-300 rounded-lg px-3 bg-white focus:border-red-500 outline-none"
                             >
-                                <option value="">
-                                    Selecionar subgrupo
-                                </option>
-
-                                {subGroups.map((subGroup) => {
-                                    const group = groups.find(
-                                        (item) =>
-                                            item.access_point_group_id ===
-                                            subGroup.access_point_group_id
-                                    );
-
-                                    return (
-                                        <option
-                                            key={
-                                                subGroup.access_point_sub_group_id
-                                            }
-                                            value={
-                                                subGroup.access_point_sub_group_id
-                                            }
-                                        >
-                                            {group?.access_point_group_name ||
-                                                "-"}{" "}
-                                            /{" "}
-                                            {subGroup.access_point_group_name ||
-                                                "-"}
-                                        </option>
-                                    );
-                                })}
+                                <option value="">Selecionar tipologia</option>
+                                {typologies.map((typology) => (
+                                    <option
+                                        key={typology.typology_id}
+                                        value={typology.typology_id}
+                                    >
+                                        {typology.name}
+                                    </option>
+                                ))}
                             </select>
 
                             <label className="flex items-center gap-2 text-sm text-gray-700">

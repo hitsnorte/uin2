@@ -342,14 +342,12 @@ export default function Homepage() {
           }
 
           const accessPointLayout = await accessPointsResponse.json();
-          hasValidPath = Array.isArray(accessPointLayout.rooms) &&
-            accessPointLayout.rooms.some((room) =>
-              Array.isArray(room.points) &&
-              room.points.some(
-                (point) =>
-                  Number(point.access_point_id) === requestedAccessPointId &&
-                  isActive(point.active)
-              )
+          hasValidPath =
+            Array.isArray(accessPointLayout.points) &&
+            accessPointLayout.points.some(
+              (point) =>
+                Number(point.access_point_id) === requestedAccessPointId &&
+                isActive(point.active)
             );
         }
       }
