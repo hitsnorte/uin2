@@ -80,11 +80,12 @@ function buildItemTree(groups, families, categories, products) {
   const tree = groups.map((group) => ({
     key: `group-${group.item_group_id}`,
     type: "group",
+    id: Number(group.item_group_id),
     name: group.item_group_name || "Grupo sem nome",
     children: [],
   }));
   const groupsById = new Map(
-    tree.map((node) => [Number(node.key.slice("group-".length)), node])
+    tree.map((node) => [node.id, node])
   );
   let unassignedGroup = null;
   let unassignedFamily = null;
@@ -137,6 +138,7 @@ function buildItemTree(groups, families, categories, products) {
     const familyNode = {
       key: `family-${family.item_family_id}`,
       type: "family",
+      id: Number(family.item_family_id),
       name: family.item_family_name || "Família sem nome",
       children: [],
     };
@@ -150,6 +152,7 @@ function buildItemTree(groups, families, categories, products) {
     const subfamilyNode = {
       key: `subfamily-${category.item_subfamily_id}`,
       type: "subfamily",
+      id: Number(category.item_subfamily_id),
       name: category.category_name1 || "Subfamília sem nome",
       children: [],
     };
@@ -167,6 +170,7 @@ function buildItemTree(groups, families, categories, products) {
     subfamilyNode.children.push({
       key: `item-${product.item_id}`,
       type: "item",
+      id: Number(product.item_id),
       name: product.item_name1 || "Item sem nome",
       product,
       children: [],
@@ -189,16 +193,30 @@ function buildItemTree(groups, families, categories, products) {
   return tree;
 }
 
-function filterItemTree(node, search) {
+function filterItemTree(node, filters) {
+  const selectedId = filters[`${node.type}Id`];
+  if (selectedId && node.type !== "item" && node.id !== Number(selectedId)) {
+    return null;
+  }
+
   if (node.type === "item") {
-    return node.name.toLowerCase().includes(search) ? node : null;
+    const matchesSearch = node.name.toLowerCase().includes(filters.search);
+    const matchesType =
+      !filters.itemType || node.product.item_type === filters.itemType;
+    return matchesSearch && matchesType ? node : null;
   }
 
   const children = node.children
-    .map((child) => filterItemTree(child, search))
+    .map((child) => filterItemTree(child, filters))
     .filter(Boolean);
 
-  return children.length > 0 ? { ...node, children } : null;
+  if (children.length === 0) return null;
+
+  return {
+    ...node,
+    children,
+    productIds: children.flatMap((child) => child.productIds),
+  };
 }
 
 function ItemTreeNode({
@@ -264,11 +282,7 @@ function ItemTreeNode({
         >
           {node.name}
         </button>
-        {node.type === "item" ? (
-          <span className="shrink-0 text-xs text-gray-500">
-            {Number(node.product.item_price || 0).toFixed(2)} €
-          </span>
-        ) : (
+        {node.type !== "item" && (
           <span className="shrink-0 text-xs text-gray-400">
             {productIds.length}
           </span>
@@ -306,6 +320,11 @@ export default function Editor({ value, onChange }) {
   const [families, setFamilies] = useState([]);
   const [groups, setGroups] = useState([]);
   const [productSearch, setProductSearch] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedFamilyId, setSelectedFamilyId] = useState("");
+  const [selectedSubfamilyId, setSelectedSubfamilyId] = useState("");
+  const [selectedItemType, setSelectedItemType] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedNodeIds, setExpandedNodeIds] = useState(new Set());
   const [itemTreeLoading, setItemTreeLoading] = useState(true);
   const [itemTreeError, setItemTreeError] = useState("");
@@ -613,11 +632,54 @@ export default function Editor({ value, onChange }) {
 
   const itemTree = buildItemTree(groups, families, categories, products);
   const normalizedSearch = productSearch.trim().toLowerCase();
+  const treeFilters = {
+    search: normalizedSearch,
+    groupId: selectedGroupId,
+    familyId: selectedFamilyId,
+    subfamilyId: selectedSubfamilyId,
+    itemType: selectedItemType,
+  };
   const visibleItemTree = normalizedSearch
-    ? itemTree
-        .map((node) => filterItemTree(node, normalizedSearch))
-        .filter(Boolean)
+    || selectedGroupId
+    || selectedFamilyId
+    || selectedSubfamilyId
+    || selectedItemType
+    ? itemTree.map((node) => filterItemTree(node, treeFilters)).filter(Boolean)
     : itemTree;
+  const availableFamilies = selectedGroupId
+    ? families.filter(
+        (family) => Number(family.item_group_id) === Number(selectedGroupId)
+      )
+    : families;
+  const availableSubfamilies = selectedFamilyId
+    ? categories.filter(
+        (category) =>
+          Number(category.item_family_id) === Number(selectedFamilyId)
+      )
+    : selectedGroupId
+      ? categories.filter((category) =>
+          availableFamilies.some(
+            (family) =>
+              Number(family.item_family_id) ===
+              Number(category.item_family_id)
+          )
+        )
+      : categories;
+  const availableItemTypes = [
+    ...new Set(products.map((product) => product.item_type).filter(Boolean)),
+  ].sort((first, second) => first.localeCompare(second, "pt"));
+  const hasActiveFilters = Boolean(
+    selectedGroupId ||
+      selectedFamilyId ||
+      selectedSubfamilyId ||
+      selectedItemType
+  );
+  const clearItemFilters = () => {
+    setSelectedGroupId("");
+    setSelectedFamilyId("");
+    setSelectedSubfamilyId("");
+    setSelectedItemType("");
+  };
   const draftProductIdSet = new Set(draftProductIds.map(Number));
 
   const hasNewDraftProducts = draftProductIds.some(
@@ -740,7 +802,7 @@ export default function Editor({ value, onChange }) {
 
 {productModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Selecionar Itens</h2>
@@ -758,15 +820,143 @@ export default function Editor({ value, onChange }) {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-4">
-        <div className="relative shrink-0">
+        <div className="relative flex shrink-0 gap-2">
           <input
             type="search"
             value={productSearch}
             onChange={(event) => setProductSearch(event.target.value)}
             placeholder="Pesquisar itens..."
             aria-label="Pesquisar itens"
-            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            aria-haspopup="dialog"
+            aria-label="Abrir filtros"
+            className={`relative flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
+              hasActiveFilters
+                ? "border-blue-500 bg-blue-50 text-blue-700"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 5h18M6 12h12m-8 7h4"
+              />
+            </svg>
+            <span>Filtros</span>
+            {hasActiveFilters && (
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+                {
+                  [
+                    selectedGroupId,
+                    selectedFamilyId,
+                    selectedSubfamilyId,
+                    selectedItemType,
+                  ].filter(Boolean).length
+                }
+              </span>
+            )}
+          </button>
+
+          {filtersOpen && (
+            <div
+              role="dialog"
+              aria-label="Filtros de itens"
+              className="absolute right-0 top-full z-30 mt-2 w-full rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
+            >
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <select
+              value={selectedGroupId}
+              onChange={(event) => {
+                setSelectedGroupId(event.target.value);
+                setSelectedFamilyId("");
+                setSelectedSubfamilyId("");
+              }}
+              aria-label="Filtrar por grupo"
+              className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Todos os grupos</option>
+              {groups.map((group) => (
+                <option key={group.item_group_id} value={group.item_group_id}>
+                  {group.item_group_name || "Grupo sem nome"}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedFamilyId}
+              onChange={(event) => {
+                setSelectedFamilyId(event.target.value);
+                setSelectedSubfamilyId("");
+              }}
+              aria-label="Filtrar por família"
+              disabled={availableFamilies.length === 0}
+              className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+            >
+              <option value="">Todas as famílias</option>
+              {availableFamilies.map((family) => (
+                <option key={family.item_family_id} value={family.item_family_id}>
+                  {family.item_family_name || "Família sem nome"}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedSubfamilyId}
+              onChange={(event) => setSelectedSubfamilyId(event.target.value)}
+              aria-label="Filtrar por subfamília"
+              disabled={availableSubfamilies.length === 0}
+              className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none disabled:bg-gray-100"
+            >
+              <option value="">Todas as subfamílias</option>
+              {availableSubfamilies.map((category) => (
+                <option
+                  key={category.item_subfamily_id}
+                  value={category.item_subfamily_id}
+                >
+                  {category.category_name1 || "Subfamília sem nome"}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedItemType}
+              onChange={(event) => setSelectedItemType(event.target.value)}
+              aria-label="Filtrar por tipo de item"
+              className="min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+            >
+              <option value="">Todos os tipos</option>
+              {availableItemTypes.map((itemType) => (
+                <option key={itemType} value={itemType}>
+                  {itemType}
+                </option>
+              ))}
+            </select>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={clearItemFilters}
+                  disabled={!hasActiveFilters}
+                  className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 p-2">
@@ -776,7 +966,9 @@ export default function Editor({ value, onChange }) {
             <p role="alert" className="px-3 py-4 text-sm text-red-600">{itemTreeError}</p>
           ) : visibleItemTree.length === 0 ? (
             <p className="px-3 py-4 text-sm text-gray-500">
-              {normalizedSearch ? "Não foram encontrados itens." : "Não existem itens para selecionar."}
+              {normalizedSearch || hasActiveFilters
+                ? "Não foram encontrados itens com estes filtros."
+                : "Não existem itens para selecionar."}
             </p>
           ) : (
             <ul role="tree" aria-label="Estrutura de itens" className="space-y-0.5">
@@ -787,7 +979,7 @@ export default function Editor({ value, onChange }) {
                   depth={0}
                   selectedIds={draftProductIdSet}
                   expandedNodeIds={expandedNodeIds}
-                  forceExpanded={Boolean(normalizedSearch)}
+                  forceExpanded={Boolean(normalizedSearch || hasActiveFilters)}
                   onToggleSelection={toggleNodeSelection}
                   onToggleExpanded={toggleNodeExpanded}
                 />

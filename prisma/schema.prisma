@@ -250,15 +250,15 @@ model Outlets {
   order                  Int?
   schedule_id            Int?
   schedule_visible       Boolean                  @default(false)
-  schedule_visible_part  Int?                     @default(0)
+  schedule_visible_part  Int?                     @default(2)
   access_points          Boolean                  @default(false)
   associate_schedule     Boolean                  @default(false)
   instant_order          Boolean                  @default(false)
   service_reservation    Boolean                  @default(false)
   takeaway_order         Boolean                  @default(false)
   reservation_item_id    Int?
-  reservationItems       OutletReservationItems[]
   Menus                  Menus[]
+  reservationItems       OutletReservationItems[]
   Areas                  Areas?                   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
   typologies             typologies[]
 
@@ -329,8 +329,6 @@ model Items {
   item_image_url         String?                  @db.VarChar(150)
   item_type              String?                  @db.VarChar(45)
   item_price             String?                  @db.VarChar(45)
-  item_vat               String?                  @db.VarChar(45)
-  item_duration          Int?
   reservation            String?                  @db.VarChar(1)
   checkin                String?                  @db.VarChar(1)
   room                   String?                  @db.VarChar(1)
@@ -341,6 +339,8 @@ model Items {
   allowReservations      String?                  @db.VarChar(1)
   scheduleID             String?                  @db.VarChar(1)
   preparation            Json?
+  item_vat               String?                  @db.VarChar(45)
+  item_duration          Int?
   OutletItems            OutletItems[]
   OutletReservationItems OutletReservationItems[]
 }
@@ -350,8 +350,8 @@ model OutletReservationItems {
   outlet_id                  Int
   item_id                    Int
   shift_index                Int
-  Outlets                    Outlets @relation(fields: [outlet_id], references: [outlet_id], onDelete: Cascade, onUpdate: Cascade)
-  Items                      Items   @relation(fields: [item_id], references: [item_id], onDelete: Cascade, onUpdate: Cascade)
+  Items                      Items   @relation(fields: [item_id], references: [item_id], onDelete: Cascade, map: "fk_outlet_reservation_items_item")
+  Outlets                    Outlets @relation(fields: [outlet_id], references: [outlet_id], onDelete: Cascade, map: "fk_outlet_reservation_items_outlet")
 
   @@index([outlet_id], map: "idx_outlet_reservation_items_outlet_id")
   @@index([item_id], map: "idx_outlet_reservation_items_item_id")
@@ -387,14 +387,6 @@ model OutletItems {
   outlet_item_id      Int       @id @default(autoincrement())
   item_id             Int
   outlet_id           Int
-  item_vat            String?   @db.VarChar(45)
-  item_duration       Int?
-  schedule_id         Int?
-  shift_index         Int?
-  is_reservation_item Boolean   @default(false)
-  cart                Boolean   @default(false)
-  takeaway_order      Boolean   @default(false)
-  order               Boolean   @default(false)
   item_name1          String?   @db.VarChar(150)
   item_name2          String?   @db.VarChar(150)
   item_name3          String?   @db.VarChar(150)
@@ -420,6 +412,14 @@ model OutletItems {
   preparation         Json?
   created_at          DateTime? @default(now()) @db.Timestamp(0)
   updated_at          DateTime? @default(now()) @db.Timestamp(0)
+  item_vat            String?   @db.VarChar(45)
+  item_duration       Int?
+  schedule_id         Int?
+  shift_index         Int?
+  is_reservation_item Boolean   @default(false)
+  cart                Boolean   @default(false)
+  takeaway_order      Boolean   @default(false)
+  order               Boolean   @default(false)
   Items               Items     @relation(fields: [item_id], references: [item_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_outlet_items_item")
 
   @@index([item_id], map: "idx_outlet_items_item_id")
