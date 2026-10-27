@@ -288,9 +288,8 @@ export default function OutletsPage() {
     setAccessPointId("");
     setImageFile(null);
 
-    setImagePreview(outlet.outlet_image || null);
-
-    setExistingImage(outlet.outlet_image || null);
+    setImagePreview(outlet.outlet_card_background || null);
+    setExistingImage(outlet.outlet_card_background || null);
 
     setShowModal(true);
 
@@ -1198,11 +1197,11 @@ export default function OutletsPage() {
             </label>
 
             {imagePreview && (
-              <div className="relative overflow-hidden rounded-xl border bg-gray-50">
+              <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl border bg-gray-50">
                 <img
                   src={imagePreview}
                   alt="Preview"
-                  className="w-full h-48 object-cover"
+                  className="absolute inset-0 h-full w-full object-contain"
                 />
 
                 <button
