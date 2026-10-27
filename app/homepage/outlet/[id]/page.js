@@ -106,6 +106,7 @@ export default function OutletPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
+  const [orderSucceeded, setOrderSucceeded] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
@@ -336,6 +337,7 @@ export default function OutletPage() {
       const product = await response.json();
       setSelectedProduct(product);
       setOrderMessage("");
+      setOrderSucceeded(false);
     } catch (error) {
       console.error("Não foi possível carregar o item", error);
     }
@@ -353,6 +355,7 @@ export default function OutletPage() {
 
     setIsOrdering(true);
     setOrderMessage("");
+    setOrderSucceeded(false);
 
     try {
       const response = await fetch("/api/product-orders", {
@@ -375,9 +378,8 @@ export default function OutletPage() {
         throw new Error(result?.error || "Falha ao enviar pedido");
       }
 
-      setOrderMessage(
-        `Pedido registado com sucesso.${result?.notificationWarning || ""}`
-      );
+      setOrderSucceeded(true);
+      setOrderMessage("Pedido efetuado com sucesso.");
     } catch (error) {
       console.error("Não foi possível enviar o pedido", error);
       setOrderMessage(error.message || "Não foi possível enviar o pedido.");
@@ -489,43 +491,65 @@ export default function OutletPage() {
           }}
         >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Tem a certeza de que quer pedir{" "}
-              {selectedProduct.item_name1 || "este artigo"}?
-            </h2>
+            {orderSucceeded ? (
+              <>
+                <p className="text-lg font-semibold text-gray-900" role="status">
+                  Pedido efetuado com sucesso.
+                </p>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProduct(null);
+                      setOrderMessage("");
+                      setOrderSucceeded(false);
+                    }}
+                    className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600"
+                  >
+                    OK
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Tem a certeza de que quer pedir{" "}
+                  {selectedProduct.item_name1 || "este artigo"}?
+                </h2>
 
-            {orderMessage && (
-              <p className="mt-4 text-sm text-gray-700" role="status">
-                {orderMessage}
-              </p>
+                {orderMessage && (
+                  <p className="mt-4 text-sm text-gray-700" role="alert">
+                    {orderMessage}
+                  </p>
+                )}
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProduct(null);
+                      setOrderMessage("");
+                    }}
+                    disabled={isOrdering}
+                    className="rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Não
+                  </button>
+                  <button
+                    type="button"
+                    onClick={orderProduct}
+                    disabled={
+                      isOrdering ||
+                      !isLoggedIn ||
+                      ![true, 1, "1"].includes(selectedProduct.order)
+                    }
+                    className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                  >
+                    {isOrdering ? "A enviar..." : "Sim, pedir"}
+                  </button>
+                </div>
+              </>
             )}
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedProduct(null);
-                  setOrderMessage("");
-                }}
-                disabled={isOrdering}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Não
-              </button>
-              <button
-                type="button"
-                onClick={orderProduct}
-                disabled={
-                  isOrdering ||
-                  orderMessage.startsWith("Pedido registado com sucesso.") ||
-                  !isLoggedIn ||
-                  ![true, 1, "1"].includes(selectedProduct.order)
-                }
-                className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
-              >
-                {isOrdering ? "A enviar..." : "Sim, pedir"}
-              </button>
-            </div>
           </div>
         </div>
       )}
