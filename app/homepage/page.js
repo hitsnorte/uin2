@@ -140,6 +140,63 @@ export default function Homepage() {
     checkSession();
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    let active = true;
+    let fetching = false;
+
+    async function refreshNotifications() {
+      if (fetching || document.visibilityState === "hidden") return;
+      fetching = true;
+
+      try {
+        const response = await fetch("/api/notifications", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`Falha ao carregar notificações (${response.status})`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new TypeError("A API de notificações deve devolver uma lista.");
+        }
+
+        if (active) {
+          setNotifications(data);
+          setNotificationsError("");
+        }
+      } catch (error) {
+        if (active) {
+          console.error("Erro ao atualizar notificações:", error);
+          setNotificationsError("Não foi possível atualizar as notificações.");
+        }
+      } finally {
+        fetching = false;
+      }
+    }
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") {
+        refreshNotifications();
+      }
+    }
+
+    refreshNotifications();
+    const intervalId = window.setInterval(refreshNotifications, 30_000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshNotifications);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshNotifications);
+    };
+  }, [isLoggedIn]);
+
   async function checkSession() {
     try {
       const response = await fetch("/api/session", {
