@@ -127,6 +127,9 @@ export default function Homepage() {
     if (searchParams.has("opensigninmodalaccesscode")) {
       setSignInStep("code");
       setShowSignInModal(true);
+    } else if (searchParams.has("opensigninmodal")) {
+      setSignInStep("method");
+      setShowSignInModal(true);
     }
 
     fetchData();

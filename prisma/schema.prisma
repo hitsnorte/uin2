@@ -440,3 +440,21 @@ model notifications {
   @@index([user_id, created_at(sort: Desc)], map: "idx_user_created")
   @@index([user_id, is_read], map: "idx_user_unread")
 }
+
+model OrderStatus {
+  order_status_id   Int      @id @default(autoincrement())
+  order_status_name String   @db.VarChar(100)
+  Orders            Orders[]
+}
+
+model Orders {
+  order_id      Int          @id @default(autoincrement())
+  order_name    String?      @db.VarChar(150)
+  customer_name String?      @db.VarChar(150)
+  order_status  Int?
+  created_at    DateTime     @default(now()) @db.Timestamp(0)
+  updated_at    DateTime     @default(now()) @db.Timestamp(0)
+  OrderStatus   OrderStatus? @relation(fields: [order_status], references: [order_status_id], onDelete: Restrict, map: "fk_orders_order_status")
+
+  @@index([order_status], map: "idx_order_status")
+}

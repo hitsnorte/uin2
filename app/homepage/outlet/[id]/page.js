@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -111,6 +111,11 @@ export default function OutletPage() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const [loading, setLoading] = useState(true);
+  const sessionStateRef = useRef({ checking: true, authenticated: false });
+  sessionStateRef.current = {
+    checking: checkingSession,
+    authenticated: isLoggedIn,
+  };
 
   // ---------------- FETCH ----------------
 
@@ -314,6 +319,11 @@ export default function OutletPage() {
 
   async function openOrderConfirmation(productId, sourceItemId) {
     if (!productId) return;
+    if (sessionStateRef.current.checking) return;
+    if (!sessionStateRef.current.authenticated) {
+      router.push("/homepage?opensigninmodal");
+      return;
+    }
 
     try {
       const endpoint =
@@ -333,7 +343,8 @@ export default function OutletPage() {
 
   async function orderProduct() {
     if (
-      !selectedProduct?.staychatWebhook ||
+      !selectedProduct ||
+      !isLoggedIn ||
       ![true, 1, "1"].includes(selectedProduct.order) ||
       isOrdering
     ) {
@@ -348,22 +359,30 @@ export default function OutletPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productId: selectedProduct.item_id,
-          quantity: 1,
+          ...(selectedProduct.outlet_item_id
+            ? { outletItemId: selectedProduct.outlet_item_id }
+            : { productId: selectedProduct.item_id }),
         }),
       });
 
-        const result = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(result?.error || "Falha ao enviar pedido");
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (response.status === 401) {
+          setSelectedProduct(null);
+          router.push("/homepage?opensigninmodal");
+          return;
         }
+        throw new Error(result?.error || "Falha ao enviar pedido");
+      }
 
-        setOrderMessage("Pedido enviado com sucesso.");
+      setOrderMessage(
+        `Pedido registado com sucesso.${result?.notificationWarning || ""}`
+      );
     } catch (error) {
-        console.error("Não foi possível enviar o pedido", error);
-        setOrderMessage(error.message || "Não foi possível enviar o pedido.");
+      console.error("Não foi possível enviar o pedido", error);
+      setOrderMessage(error.message || "Não foi possível enviar o pedido.");
     } finally {
-        setIsOrdering(false);
+      setIsOrdering(false);
     }
   }
 
@@ -426,7 +445,7 @@ export default function OutletPage() {
         checkingSession={checkingSession}
         onLogout={handleLogout}
         onSignIn={() => {
-          router.push("/homepage");
+          router.push("/homepage?opensigninmodal");
         }}
         onSignUp={() => {
           router.push("/homepage");
@@ -498,10 +517,9 @@ export default function OutletPage() {
                 onClick={orderProduct}
                 disabled={
                   isOrdering ||
-                  orderMessage === "Pedido enviado com sucesso." ||
-                  ![true, 1, "1"].includes(selectedProduct.order) ||
-                  selectedProduct.sendStaychat !== "1" ||
-                  !selectedProduct.staychatWebhook
+                  orderMessage.startsWith("Pedido registado com sucesso.") ||
+                  !isLoggedIn ||
+                  ![true, 1, "1"].includes(selectedProduct.order)
                 }
                 className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
