@@ -112,6 +112,10 @@ export default function Homepage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState("");
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const t = useTranslations();
 
@@ -156,8 +160,31 @@ export default function Homepage() {
 
       if (data?.authenticated && data?.user) {
         setCurrentUser(data.user);
+        try {
+          const notificationsResponse = await fetch("/api/notifications", {
+            credentials: "include",
+            cache: "no-store",
+          });
+
+          if (!notificationsResponse.ok) {
+            throw new Error(
+              `Falha ao carregar notificações (${notificationsResponse.status})`
+            );
+          }
+
+          const userNotifications = await notificationsResponse.json();
+          if (!Array.isArray(userNotifications)) {
+            throw new TypeError(
+              "A API de notificações deve devolver uma lista."
+            );
+          }
+          setNotifications(userNotifications);
+        } catch (error) {
+          console.error("Erro ao carregar notificações:", error);
+        }
       } else {
         setCurrentUser(null);
+        setNotifications([]);
       }
 
     } catch (error) {
@@ -165,6 +192,7 @@ export default function Homepage() {
 
       setIsLoggedIn(false);
       setCurrentUser(null);
+      setNotifications([]);
 
     } finally {
       setCheckingSession(false);
@@ -199,6 +227,45 @@ export default function Homepage() {
       console.error("Erro ao terminar sessão:", error);
     }
   }
+
+  async function toggleNotifications() {
+    const shouldOpen = !notificationsOpen;
+    setNotificationsOpen(shouldOpen);
+
+    if (!shouldOpen) return;
+
+    setNotificationsLoading(true);
+    setNotificationsError("");
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Falha ao carregar e marcar notificações como lidas (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new TypeError("A API de notificações deve devolver uma lista.");
+      }
+
+      setNotifications(data);
+    } catch (error) {
+      console.error("Erro ao carregar notificações:", error);
+      setNotificationsError(
+        "Não foi possível carregar ou marcar as notificações como lidas."
+      );
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }
+
   async function fetchData() {
     setLoading(true);
     try {
@@ -1117,18 +1184,87 @@ export default function Homepage() {
                   {renderLanguageSelector("compact")}
                 </div>
 
-                <button
-                  type="button"
-                  //onClick= MUDAR QUANDO HOUVER TABELA DE NOTIFICAÇÕES
-                  className="px-3 py-2 sm:px-5 sm:py-3 rounded-full font-medium backdrop-blur-xl border transition-all duration-300 shadow-lg hover:scale-105 active:scale-95"
-                  style={{
-                    background: "rgba(255,255,255,0.25)",
-                    color: theme.text,
-                    borderColor: "rgba(255,255,255,0.3)",
-                  }}
-                >
-                  <IoMdNotificationsOutline size={18} className="sm:size-5" />
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={toggleNotifications}
+                    aria-label="Notificações"
+                    aria-expanded={notificationsOpen}
+                    aria-controls="user-notifications"
+                    className="relative px-3 py-2 sm:px-5 sm:py-3 rounded-full font-medium backdrop-blur-xl border transition-all duration-300 shadow-lg hover:scale-105 active:scale-95"
+                    style={{
+                      background: "rgba(255,255,255,0.25)",
+                      color: theme.text,
+                      borderColor: "rgba(255,255,255,0.3)",
+                    }}
+                  >
+                    <IoMdNotificationsOutline size={18} className="sm:size-5" />
+                    {notifications.some((notification) => !notification.is_read) && (
+                      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+                    )}
+                  </button>
+
+                  {notificationsOpen && (
+                    <div
+                      id="user-notifications"
+                      className="absolute right-0 top-full z-[60] mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-gray-900 shadow-xl"
+                    >
+                      <div className="border-b border-gray-100 px-4 py-3">
+                        <h2 className="text-sm font-semibold">Notificações</h2>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notificationsLoading ? (
+                          <p className="px-4 py-5 text-sm text-gray-500">
+                            A carregar notificações...
+                          </p>
+                        ) : notificationsError ? (
+                          <p role="alert" className="px-4 py-5 text-sm text-red-600">
+                            {notificationsError}
+                          </p>
+                        ) : notifications.length === 0 ? (
+                          <p className="px-4 py-5 text-sm text-gray-500">
+                            Não tem notificações.
+                          </p>
+                        ) : (
+                          <ul>
+                            {notifications.map((notification) => (
+                              <li
+                                key={notification.notification_id}
+                                className={`border-b border-gray-100 px-4 py-3 last:border-b-0 ${
+                                  notification.is_read ? "" : "bg-blue-50/60"
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  {!notification.is_read && (
+                                    <span
+                                      aria-label="Não lida"
+                                      className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"
+                                    />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium">
+                                      {notification.title}
+                                    </p>
+                                    <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
+                                      {notification.message}
+                                    </p>
+                                    {notification.created_at && (
+                                      <time className="mt-2 block text-xs text-gray-400">
+                                        {new Date(
+                                          notification.created_at
+                                        ).toLocaleString("pt-PT")}
+                                      </time>
+                                    )}
+                                  </div>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"
