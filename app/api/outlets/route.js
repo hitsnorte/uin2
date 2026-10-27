@@ -30,6 +30,23 @@ async function getSelectedScheduleId(body, isRequired) {
   return schedule ? scheduleId : null;
 }
 
+async function getTableReservationItemId(value) {
+  const itemId = Number(value);
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) return null;
+
+  const item = await prisma.items.findFirst({
+    where: { item_id: itemId, item_type: "Reserva de mesa" },
+    select: { item_id: true },
+  });
+
+  return item?.item_id ?? null;
+}
+
+function getReservationDuration(value) {
+  const duration = Number(value);
+  return Number.isSafeInteger(duration) && duration > 0 ? duration : null;
+}
+
 // GET ALL
 export async function GET() {
   try {
@@ -79,6 +96,26 @@ export async function POST(req) {
 
     const scheduleRequired =
       toBooleanFlag(reservation) || toBooleanFlag(associate_schedule);
+    const reservationEnabled = toBooleanFlag(reservation);
+    const reservationItemId = reservationEnabled
+      ? await getTableReservationItemId(body.reservation_item_id)
+      : null;
+    if (reservationEnabled && reservationItemId === null) {
+      return Response.json(
+        { error: "Selecione um item válido do tipo Reserva de mesa." },
+        { status: 400 }
+      );
+    }
+    const reservationDuration = reservationEnabled
+      ? getReservationDuration(body.reservation_duration)
+      : null;
+    if (reservationEnabled && reservationDuration === null) {
+      return Response.json(
+        { error: "Indique uma duração válida em minutos para a reserva." },
+        { status: 400 }
+      );
+    }
+
     const scheduleVisiblePart = getScheduleVisiblePart(
       body.schedule_visible_part
     );
@@ -116,6 +153,8 @@ export async function POST(req) {
         associate_schedule: toBooleanFlag(associate_schedule),
         access_points: toBooleanFlag(access_points),
         reservation: toNumericFlag(reservation),
+        reservation_item_id: reservationItemId,
+        reservation_duration: reservationDuration,
         service_reservation: toBooleanFlag(service_reservation),
         takeaway_order: toBooleanFlag(takeaway_order),
         order: toNumericFlag(order),
