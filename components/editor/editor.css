@@ -42,8 +42,16 @@
   flex: 1;
 }
 
+.ProseMirror .product-node-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .ProseMirror [data-product-node] strong {
   display: block;
+  min-width: 0;
   color: #111827;
 }
 
@@ -89,8 +97,48 @@
 
 .ProseMirror .product-node-edit {
   border: 1px solid #d1d5db;
-  color: #6b7280;
+  color: #2563eb;
   background: #f9fafb;
+  cursor: pointer;
+}
+
+.ProseMirror .product-node-edit:hover {
+  background: #eff6ff;
+}
+
+.ProseMirror .product-node-edit-required,
+.ProseMirror .product-node-edit-required:hover {
+  border-color: #dc2626;
+  color: #b91c1c;
+  background: #fee2e2;
+  animation: product-edit-required-pulse 1.5s ease-in-out infinite;
+}
+
+.ProseMirror .product-node-order {
+  flex: 0 0 auto;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  color: #fff;
+  background: #dc2626;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ProseMirror .product-node-order:hover {
+  background: #b91c1c;
+}
+
+.ProseMirror .product-node-order:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 2px;
+}
+
+.ProseMirror .product-node-edit:disabled {
+  color: #6b7280;
   cursor: not-allowed;
 }
 
@@ -102,6 +150,12 @@
 
 .ProseMirror .product-node-delete:hover {
   background: #fee2e2;
+}
+
+@keyframes product-edit-required-pulse {
+  50% {
+    background: #fecaca;
+  }
 }
 
 @media (max-width: 640px) {

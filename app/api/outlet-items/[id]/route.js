@@ -18,12 +18,80 @@ export async function PATCH(request, context) {
       return Response.json({ error: "Dados do item inválidos." }, { status: 400 });
     }
 
-    const currentItem = await prisma.outletItems.findFirst({
-      where: { outlet_item_id: id, is_reservation_item: true },
+    const currentItem = await prisma.outletItems.findUnique({
+      where: { outlet_item_id: id },
     });
     if (!currentItem) {
       return Response.json({ error: "Item do outlet não encontrado." }, { status: 404 });
     }
+
+    if (!currentItem.is_reservation_item) {
+      const data = {};
+      if (typeof body.item_name1 !== "string" || !body.item_name1.trim()) {
+        return Response.json({ error: "Indique o nome do item." }, { status: 400 });
+      }
+      if (body.item_name1.trim().length > 150) {
+        return Response.json({ error: "O nome não pode exceder 150 caracteres." }, { status: 400 });
+      }
+      if (
+        body.item_description1 != null &&
+        (typeof body.item_description1 !== "string" ||
+          body.item_description1.length > 150)
+      ) {
+        return Response.json(
+          { error: "A descrição não pode exceder 150 caracteres." },
+          { status: 400 }
+        );
+      }
+
+      const price =
+        body.item_price == null || body.item_price === ""
+          ? null
+          : Number(body.item_price);
+      if (price !== null && (!Number.isFinite(price) || price < 0)) {
+        return Response.json({ error: "Indique um preço válido." }, { status: 400 });
+      }
+      const vat =
+        body.item_vat == null || body.item_vat === ""
+          ? null
+          : Number(body.item_vat);
+      if (vat !== null && (!Number.isFinite(vat) || vat < 0 || vat > 100)) {
+        return Response.json(
+          { error: "O IVA deve ser uma percentagem entre 0 e 100." },
+          { status: 400 }
+        );
+      }
+
+      for (const field of ["takeaway_order", "cart", "order", "checkin"]) {
+        if (
+          Object.hasOwn(body, field) &&
+          ![true, false, 1, 0, "1", "0"].includes(body[field])
+        ) {
+          return Response.json(
+            { error: `O campo ${field} deve ser booleano.` },
+            { status: 400 }
+          );
+        }
+      }
+
+      Object.assign(data, {
+        item_name1: body.item_name1.trim(),
+        item_description1: body.item_description1?.trim() || null,
+        item_price: price,
+        item_vat: vat == null ? null : String(vat),
+        takeaway_order: isEnabled(body.takeaway_order),
+        cart: isEnabled(body.cart),
+        order: isEnabled(body.order),
+        checkin: isEnabled(body.checkin) ? "1" : "0",
+      });
+
+      const updated = await prisma.outletItems.update({
+        where: { outlet_item_id: id },
+        data,
+      });
+      return Response.json(updated);
+    }
+
     const outlet = await prisma.outlets.findUnique({
       where: { outlet_id: currentItem.outlet_id },
       select: { schedule_id: true },
@@ -100,6 +168,29 @@ export async function PATCH(request, context) {
     console.error(error);
     return Response.json(
       { error: "Não foi possível guardar este item do outlet." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(_, context) {
+  try {
+    const { id: rawId } = await context.params;
+    const id = Number(rawId);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return Response.json({ error: "ID do item inválido." }, { status: 400 });
+    }
+    const item = await prisma.outletItems.findUnique({
+      where: { outlet_item_id: id },
+    });
+    if (!item) {
+      return Response.json({ error: "Item do outlet não encontrado." }, { status: 404 });
+    }
+    return Response.json(item);
+  } catch (error) {
+    console.error("Erro ao carregar snapshot do item:", error);
+    return Response.json(
+      { error: "Não foi possível carregar o item do outlet." },
       { status: 500 }
     );
   }

@@ -10,11 +10,15 @@ export default function ItemModal({
   item,
   shiftOptions = [],
   initialShiftIndex = 0,
+  reservationAssignment = false,
   onClose,
   onSaved,
 }) {
+  const isTableReservation = item.item_type === "Reserva de mesa";
+  const isProduct = item.item_type === "Produto";
   const [form, setForm] = useState({
     item_name1: item.item_name1 || "",
+    item_description1: item.item_description1 || "",
     item_price: item.item_price ?? "",
     item_vat: item.item_vat ?? "",
     item_duration: item.item_duration ?? "",
@@ -31,7 +35,6 @@ export default function ItemModal({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
-  const isTableReservation = item.item_type === "Reserva de mesa";
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -79,6 +82,7 @@ export default function ItemModal({
 
     if (
       isTableReservation &&
+      reservationAssignment &&
       !shiftOptions.some(
         (shift) => shift.shift_index === Number(form.shift_index)
       )
@@ -94,20 +98,35 @@ export default function ItemModal({
         {
           item_id: item.item_id,
           item_name1: form.item_name1.trim(),
+          ...(isProduct
+            ? { item_description1: form.item_description1.trim() }
+            : {}),
           item_price: form.item_price,
           item_vat: form.item_vat,
-          ...(isTableReservation
+          ...(isProduct
             ? {
-                item_duration: Number(form.item_duration),
-                reservation: form.reservation,
                 takeaway_order: form.takeaway_order,
                 cart: form.cart,
                 order: form.order,
                 checkin: form.checkin,
               }
             : {}),
+          ...(isTableReservation
+            ? {
+                item_duration: Number(form.item_duration),
+                ...(reservationAssignment
+                  ? {
+                      reservation: form.reservation,
+                      takeaway_order: form.takeaway_order,
+                      cart: form.cart,
+                      order: form.order,
+                      checkin: form.checkin,
+                    }
+                  : {}),
+              }
+            : {}),
         },
-        Number(form.shift_index)
+        reservationAssignment ? Number(form.shift_index) : null
       );
     } catch (saveError) {
       console.error(saveError);
@@ -150,7 +169,28 @@ export default function ItemModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {isProduct && (
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="item-modal-description"
+                className="text-sm font-medium text-gray-700"
+              >
+                Descrição
+              </label>
+              <textarea
+                id="item-modal-description"
+                name="item_description1"
+                value={form.item_description1}
+                onChange={handleChange}
+                maxLength={150}
+                rows={3}
+                disabled={isSaving}
+                className="rounded-lg border px-3 py-2"
+              />
+            </div>
+          )}
+
+          <div className={reservationAssignment ? "grid grid-cols-2 gap-3" : ""}>
             <div className="flex flex-col gap-1">
               <label htmlFor="item-modal-price" className="text-sm font-medium text-gray-700">
                 Preço
@@ -207,32 +247,34 @@ export default function ItemModal({
                     className="h-10 rounded-lg border px-3"
                   />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="item-modal-shift" className="text-sm font-medium text-gray-700">
-                    Turno do horário
-                  </label>
-                  <select
-                    id="item-modal-shift"
-                    name="shift_index"
-                    value={form.shift_index}
-                    onChange={handleChange}
-                    required
-                    disabled={isSaving || shiftOptions.length === 0}
-                    className="h-10 rounded-lg border px-3 disabled:bg-gray-100"
-                  >
-                    {shiftOptions.length === 0 ? (
-                      <option value="">Sem turnos configurados</option>
-                    ) : (
-                      shiftOptions.map((shift) => (
-                        <option key={shift.shift_index} value={shift.shift_index}>
-                          {shift.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
+                {reservationAssignment && (
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="item-modal-shift" className="text-sm font-medium text-gray-700">
+                      Turno do horário
+                    </label>
+                    <select
+                      id="item-modal-shift"
+                      name="shift_index"
+                      value={form.shift_index}
+                      onChange={handleChange}
+                      required
+                      disabled={isSaving || shiftOptions.length === 0}
+                      className="h-10 rounded-lg border px-3 disabled:bg-gray-100"
+                    >
+                      {shiftOptions.length === 0 ? (
+                        <option value="">Sem turnos configurados</option>
+                      ) : (
+                        shiftOptions.map((shift) => (
+                          <option key={shift.shift_index} value={shift.shift_index}>
+                            {shift.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                )}
               </div>
-              <fieldset className="flex flex-col gap-2">
+              {reservationAssignment && <fieldset className="flex flex-col gap-2">
                 <legend className="text-sm font-bold text-gray-600">
                   Condições do item
                 </legend>
@@ -257,8 +299,35 @@ export default function ItemModal({
                     </label>
                   ))}
                 </div>
-              </fieldset>
+              </fieldset>}
             </>
+          )}
+          {isProduct && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-sm font-bold text-gray-600">
+                Condições do item
+              </legend>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  ["takeaway_order", "Encomenda"],
+                  ["cart", "Carrinho"],
+                  ["order", "Pedido"],
+                  ["checkin", "Check-in"],
+                ].map(([name, label]) => (
+                  <label key={name} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      name={name}
+                      checked={form[name]}
+                      onChange={handleChange}
+                      disabled={isSaving}
+                      className="h-4 w-4 accent-red-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           )}
         </div>
 

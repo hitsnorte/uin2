@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 import Editor from "@/components/editor/page.js";
+import { hasUnconfiguredProducts } from "@/components/editor/productContent";
 import { QRCodeCanvas } from "qrcode.react";
 import { IoQrCode } from "react-icons/io5";
 
@@ -144,6 +145,11 @@ export default function SubmenusPage() {
 
   async function saveContent() {
     if (!selectedSubmenu || isSavingContent) return;
+
+    if (hasUnconfiguredProducts(editorContent)) {
+      alert("Abra o lápis vermelho de cada produto, configure-o e guarde antes de guardar o conteúdo.");
+      return;
+    }
 
     setIsSavingContent(true);
     try {
@@ -599,7 +605,16 @@ export default function SubmenusPage() {
                   {contentError}
                 </div>
               ) : (
-                <Editor value={editorContent} onChange={setEditorContent} />
+                <Editor
+                  value={editorContent}
+                  onChange={setEditorContent}
+                  outletId={
+                    menus.find(
+                      (menu) =>
+                        Number(menu.menu_id) === Number(selectedSubmenu?.menu_id)
+                    )?.outlet_id
+                  }
+                />
               )}
             </div>
 

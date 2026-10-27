@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import BulletList from "@tiptap/extension-bullet-list";
 import ListItem from "@tiptap/extension-list-item";
 import OrderedList from "@tiptap/extension-ordered-list";
+import ItemModal from "@/components/items/ItemModal";
 import ImageWithDelete from "./ImageWithDelete/page";
 import ProductNode from "./ProductNode";
 import "./editor.css";
@@ -16,7 +17,7 @@ function collectProductIds(value, ids = []) {
     value.forEach((item) => collectProductIds(item, ids));
   } else if (value && typeof value === "object") {
     if (value.type === "product" && value.attrs?.productId != null) {
-      ids.push(Number(value.attrs.productId));
+      ids.push(Number(value.attrs.sourceItemId ?? value.attrs.productId));
     }
 
     Object.values(value).forEach((item) => collectProductIds(item, ids));
@@ -35,7 +36,7 @@ function hasIncompleteProductNode(value) {
   }
 
   if (value.type === "product") {
-    return !value.attrs?.name;
+    return !value.attrs?.name || value.attrs?.sourceItemId == null;
   }
 
   return Object.values(value).some(hasIncompleteProductNode);
@@ -51,18 +52,22 @@ function hydrateProductNodes(value, productsById) {
   }
 
   if (value.type === "product" && value.attrs?.productId != null) {
-    const product = productsById.get(Number(value.attrs.productId));
+    const product = productsById.get(
+      Number(value.attrs.sourceItemId ?? value.attrs.productId)
+    );
 
     if (product) {
       return {
         ...value,
         attrs: {
-          productId: product.item_id,
+          productId: product.outlet_item_id,
+          sourceItemId: product.item_id,
           name: product.item_name1 || "Item sem nome",
           description: product.item_description1 || "",
           imageUrl: product.item_image_url || "",
           productType: product.item_type || "",
           price: product.item_price,
+          order: product.order,
         },
       };
     }
@@ -309,7 +314,7 @@ function ItemTreeNode({
   );
 }
 
-export default function Editor({ value, onChange }) {
+export default function Editor({ value, onChange, outletId }) {
   const [selectedPos, setSelectedPos] = useState(null);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -328,6 +333,10 @@ export default function Editor({ value, onChange }) {
   const [expandedNodeIds, setExpandedNodeIds] = useState(new Set());
   const [itemTreeLoading, setItemTreeLoading] = useState(true);
   const [itemTreeError, setItemTreeError] = useState("");
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [productEditError, setProductEditError] = useState("");
+  const [isLoadingProductEdit, setIsLoadingProductEdit] = useState(false);
 
   useEffect(() => {
     async function fetchItemTreeData() {
@@ -372,7 +381,65 @@ export default function Editor({ value, onChange }) {
     fetchItemTreeData();
   }, []);
 
-  async function resolveSelectedProducts(ids) {
+  const ensureOutletItem = useCallback(async (itemId) => {
+    const normalizedOutletId = Number(outletId);
+    if (!Number.isSafeInteger(normalizedOutletId) || normalizedOutletId <= 0) {
+      throw new Error("É necessário associar o conteúdo a um outlet.");
+    }
+
+    const response = await fetch("/api/outlet-items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outlet_id: normalizedOutletId,
+        item_id: Number(itemId),
+      }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(result?.error || "Não foi possível guardar o item no outlet.");
+    }
+    return result;
+  }, [outletId]);
+
+  useEffect(() => {
+    if (editingProductId === null) return;
+
+    let cancelled = false;
+    setEditingProduct(null);
+    setProductEditError("");
+    setIsLoadingProductEdit(true);
+
+    async function fetchProduct() {
+      try {
+        const response = await fetch(`/api/outlet-items/${editingProductId}`);
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || "Não foi possível carregar o produto.");
+        }
+        if (!result || Number(result.outlet_item_id) !== editingProductId) {
+          throw new Error("Os dados do produto são inválidos.");
+        }
+        if (!cancelled) setEditingProduct(result);
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setProductEditError(
+            error.message || "Não foi possível carregar o produto."
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoadingProductEdit(false);
+      }
+    }
+
+    fetchProduct();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingProductId]);
+
+  const resolveSelectedProducts = useCallback(async (ids) => {
     const normalizedIds = (ids || [])
       .map((id) => {
         const parsedId = Number(id);
@@ -388,17 +455,20 @@ export default function Editor({ value, onChange }) {
       const resolvedProducts = await Promise.all(
         normalizedIds.map(async (id) => {
           const res = await fetch(`/api/products/${id}`);
-          if (!res.ok) return null;
-          return res.json();
+          if (!res.ok) {
+            throw new Error(`Não foi possível carregar o item ${id}.`);
+          }
+          const item = await res.json();
+          return ensureOutletItem(item.item_id);
         })
       );
 
-      return resolvedProducts.filter(Boolean);
+      return resolvedProducts;
     } catch (err) {
       console.error("Failed to load selected products", err);
       return [];
     }
-  }
+  }, [ensureOutletItem]);
 
   const initialEditorContent =
     value && typeof value === "object" && value.editor
@@ -446,7 +516,10 @@ export default function Editor({ value, onChange }) {
       OrderedList,
       ListItem,
       ImageWithDelete,
-      ProductNode,
+      ProductNode.configure({
+        onProductEdit: (productId, sourceItemId) =>
+          openProductForEdit(productId, sourceItemId),
+      }),
       Placeholder.configure({
         placeholder: "Escreve o conteúdo aqui...",
       }),
@@ -458,14 +531,17 @@ export default function Editor({ value, onChange }) {
     immediatelyRender: false,
 
     onUpdate: ({ editor }) => {
-      const editorProductIds = editor.state.doc.content.content
-        .filter((node) => node.type.name === "product")
-        .map((node) => node.attrs.productId);
+      const productNodes = editor.state.doc.content.content.filter(
+        (node) => node.type.name === "product"
+      );
+      const editorProductIds = productNodes.map(
+        (node) => node.attrs.sourceItemId ?? node.attrs.productId
+      );
 
       setSelectedProductIds(editorProductIds);
       onChange?.({
         editor: editor.getJSON(),
-        selectedProducts: editorProductIds,
+        selectedProducts: productNodes.map((node) => node.attrs.productId),
       });
     },
   });
@@ -507,16 +583,27 @@ export default function Editor({ value, onChange }) {
       );
 
       const currentContent = editor.getJSON();
-      editor.commands.setContent(
-        hydrateProductNodes(currentContent, productsById),
-        false
+      const hydratedContent = hydrateProductNodes(
+        currentContent,
+        productsById
       );
+      editor.commands.setContent(hydratedContent, false);
+      const updatedContent = editor.getJSON();
+      const hydratedProductNodes = (updatedContent.content || []).filter(
+        (node) => node.type === "product"
+      );
+      onChange?.({
+        editor: updatedContent,
+        selectedProducts: hydratedProductNodes.map(
+          (node) => node.attrs.productId
+        ),
+      });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [editor, value]);
+  }, [editor, onChange, resolveSelectedProducts, value]);
 
   useEffect(() => {
     if (!productModalOpen) return;
@@ -548,6 +635,88 @@ export default function Editor({ value, onChange }) {
       .run();
 
     setSelectedPos(null);
+  }
+
+  async function openProductForEdit(productId, sourceItemId) {
+    try {
+      let outletItemId = Number(productId);
+      if (sourceItemId == null) {
+        const snapshot = await ensureOutletItem(productId);
+        outletItemId = Number(snapshot.outlet_item_id);
+
+        const transaction = editor.state.tr;
+        editor.state.doc.descendants((node, position) => {
+          if (
+            node.type.name === "product" &&
+            Number(node.attrs.productId) === Number(productId) &&
+            node.attrs.sourceItemId == null
+          ) {
+            transaction.setNodeMarkup(position, undefined, {
+              ...node.attrs,
+              productId: snapshot.outlet_item_id,
+              sourceItemId: snapshot.item_id,
+            });
+          }
+        });
+        if (transaction.docChanged) editor.view.dispatch(transaction);
+      }
+
+      setEditingProductId(outletItemId);
+    } catch (error) {
+      console.error(error);
+      window.alert(error.message || "Não foi possível abrir o item.");
+    }
+  }
+
+  async function saveEditedProduct(item) {
+    const response = await fetch(
+      `/api/outlet-items/${editingProduct.outlet_item_id}`,
+      {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_name1: item.item_name1,
+        item_description1: item.item_description1,
+        item_price: item.item_price,
+        item_vat: item.item_vat,
+        takeaway_order: item.takeaway_order,
+        cart: item.cart,
+        order: item.order,
+        checkin: item.checkin,
+      }),
+      }
+    );
+    const result = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(result?.error || "Não foi possível guardar o produto.");
+    }
+
+    const transaction = editor.state.tr;
+    editor.state.doc.descendants((node, position) => {
+      if (
+        node.type.name !== "product" ||
+        Number(node.attrs.productId) !== Number(result.outlet_item_id)
+      ) {
+        return;
+      }
+
+      transaction.setNodeMarkup(position, undefined, {
+        ...node.attrs,
+        productId: result.outlet_item_id,
+        sourceItemId: result.item_id,
+        name: result.item_name1 || "Item sem nome",
+        description: result.item_description1 || "",
+        imageUrl: result.item_image_url || "",
+        productType: result.item_type || "",
+        price: result.item_price,
+        order: result.order,
+        isConfigured: true,
+      });
+    });
+    if (transaction.docChanged) editor.view.dispatch(transaction);
+
+    setEditingProductId(null);
+    setEditingProduct(null);
   }
 
   function toggleNodeSelection(productIds) {
@@ -582,10 +751,10 @@ export default function Editor({ value, onChange }) {
   function getEditorProductIds() {
     return editor.state.doc.content.content
       .filter((node) => node.type.name === "product")
-      .map((node) => node.attrs.productId);
+      .map((node) => node.attrs.sourceItemId ?? node.attrs.productId);
   }
 
-  function addSelectedProducts() {
+  async function addSelectedProducts() {
     const editorProductIds = getEditorProductIds();
     const editorProductIdSet = new Set(editorProductIds.map(Number));
     const newProductIds = draftProductIds.filter((productId) =>
@@ -598,11 +767,23 @@ export default function Editor({ value, onChange }) {
       return;
     }
 
-    const productsToInsert = newProductIds
-      .map((productId) =>
-        products.find((product) => Number(product.item_id) === Number(productId))
-      )
-      .filter(Boolean);
+    let productsToInsert;
+    try {
+      productsToInsert = await Promise.all(
+        newProductIds
+          .map((productId) =>
+            products.find(
+              (product) => Number(product.item_id) === Number(productId)
+            )
+          )
+          .filter(Boolean)
+          .map((product) => ensureOutletItem(product.item_id))
+      );
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Não foi possível adicionar os itens.");
+      return;
+    }
 
     editor
       .chain()
@@ -612,12 +793,15 @@ export default function Editor({ value, onChange }) {
         productsToInsert.map((product) => ({
           type: "product",
           attrs: {
-            productId: product.item_id,
+            productId: product.outlet_item_id,
+            sourceItemId: product.item_id,
             name: product.item_name1 || "Item sem nome",
             description: product.item_description1 || "",
             imageUrl: product.item_image_url || "",
             productType: product.item_type || "",
             price: product.item_price,
+            order: product.order,
+            isConfigured: false,
           },
         }))
       )
@@ -868,6 +1052,7 @@ export default function Editor({ value, onChange }) {
                 }
               </span>
             )}
+
           </button>
 
           {filtersOpen && (
@@ -957,6 +1142,7 @@ export default function Editor({ value, onChange }) {
               </div>
             </div>
           )}
+
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 p-2">
@@ -1017,6 +1203,45 @@ export default function Editor({ value, onChange }) {
     </div>
   </div>
 )}
+      {editingProductId !== null && (
+        editingProduct ? (
+          <ItemModal
+            item={editingProduct}
+            onClose={() => {
+              setEditingProductId(null);
+              setEditingProduct(null);
+              setProductEditError("");
+            }}
+            onSaved={saveEditedProduct}
+          />
+        ) : (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+              {isLoadingProductEdit ? (
+                <p role="status" className="text-sm text-gray-600">
+                  A carregar produto...
+                </p>
+              ) : (
+                <>
+                  <p role="alert" className="text-sm text-red-600">
+                    {productEditError || "Não foi possível carregar o produto."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingProductId(null);
+                      setProductEditError("");
+                    }}
+                    className="mt-4 rounded-lg bg-gray-200 px-4 py-2"
+                  >
+                    Fechar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )
+      )}
     </div>
   );
 }

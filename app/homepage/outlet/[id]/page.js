@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -12,18 +12,35 @@ import FrontendHeader from "@/components/layout/frontend/header";
 import "./content.css";
 import "../../loading.css";
 
-function collectProductIds(value, ids = []) {
+function collectProductReferences(value, references = []) {
   if (Array.isArray(value)) {
-    value.forEach((item) => collectProductIds(item, ids));
+    value.forEach((item) => collectProductReferences(item, references));
   } else if (value && typeof value === "object") {
     if (value.type === "product" && value.attrs?.productId != null) {
-      ids.push(Number(value.attrs.productId));
+      references.push({
+        productId: Number(value.attrs.productId),
+        sourceItemId:
+          value.attrs.sourceItemId == null
+            ? null
+            : Number(value.attrs.sourceItemId),
+      });
     }
 
-    Object.values(value).forEach((item) => collectProductIds(item, ids));
+    Object.values(value).forEach((item) =>
+      collectProductReferences(item, references)
+    );
   }
 
-  return [...new Set(ids.filter((id) => !Number.isNaN(id)))];
+  return [
+    ...new Map(
+      references
+        .filter((reference) => Number.isSafeInteger(reference.productId))
+        .map((reference) => [
+          `${reference.sourceItemId == null ? "item" : "outlet"}:${reference.productId}`,
+          reference,
+        ])
+    ).values(),
+  ];
 }
 
 function enrichProductNodes(value, productsById) {
@@ -34,18 +51,27 @@ function enrichProductNodes(value, productsById) {
   if (!value || typeof value !== "object") return value;
 
   if (value.type === "product" && value.attrs?.productId) {
-    const product = productsById.get(Number(value.attrs.productId));
+    const lookupKey = `${
+      value.attrs.sourceItemId == null ? "item" : "outlet"
+    }:${Number(value.attrs.productId)}`;
+    const product = productsById.get(lookupKey);
 
     if (product) {
       return {
         ...value,
         attrs: {
-          productId: product.item_id,
+          productId: value.attrs.productId,
+          ...(product.outlet_item_id
+            ? { sourceItemId: product.item_id }
+            : value.attrs.sourceItemId == null
+              ? {}
+              : { sourceItemId: value.attrs.sourceItemId }),
           name: product.item_name1 || "Item sem nome",
           description: product.item_description1 || "",
           imageUrl: product.item_image_url || "",
           productType: product.item_type || "",
           price: product.item_price,
+          order: product.order,
         },
       };
     }
@@ -89,15 +115,7 @@ export default function OutletPage() {
 
   // ---------------- FETCH ----------------
 
-  useEffect(() => {
-    fetchData();
-  }, [params.id]);
-
-  useEffect(() => {
-    checkSession();
-  }, []);
-
-  async function fetchData() {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setContentError("");
 
@@ -154,19 +172,27 @@ export default function OutletPage() {
         throw new Error("O submenu não pertence a um menu com submenus ativos.");
       }
 
-      const productIds = collectProductIds(contentData.content);
+      const productReferences = collectProductReferences(contentData.content);
       const products = await Promise.all(
-        productIds.map(async (productId) => {
-          const response = await fetch(`/api/products/${productId}`);
+        productReferences.map(async ({ productId, sourceItemId }) => {
+          const endpoint =
+            sourceItemId == null
+              ? `/api/products/${productId}`
+              : `/api/outlet-items/${productId}`;
+          const response = await fetch(endpoint);
           return response.ok ? response.json() : null;
         })
       );
 
       const productsById = new Map(
-        products.filter(Boolean).map((product) => [
-          Number(product.item_id),
-          product,
-        ])
+        productReferences.flatMap((reference, index) =>
+          products[index]
+            ? [[
+                `${reference.sourceItemId == null ? "item" : "outlet"}:${reference.productId}`,
+                products[index],
+              ]]
+            : []
+        )
       );
       setContent(enrichProductNodes(contentData.content || null, productsById));
       setContentItem(item);
@@ -184,7 +210,15 @@ export default function OutletPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [contentId, contentType]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    checkSession();
+  }, []);
 
   async function checkSession() {
     try {
@@ -269,6 +303,7 @@ export default function OutletPage() {
       Image,
       ProductNode.configure({
         onProductClick: handleProductClick,
+        onProductOrder: handleProductClick,
       }),
     ],
 
@@ -280,11 +315,15 @@ export default function OutletPage() {
     immediatelyRender: false,
   });
 
-  async function handleProductClick(productId) {
+  async function handleProductClick(productId, sourceItemId) {
     if (!productId) return;
 
     try {
-      const response = await fetch(`/api/products/${productId}`);
+      const endpoint =
+        sourceItemId == null
+          ? `/api/products/${productId}`
+          : `/api/outlet-items/${productId}`;
+      const response = await fetch(endpoint);
       if (!response.ok) throw new Error("Produto não encontrado");
 
       const product = await response.json();
@@ -297,7 +336,13 @@ export default function OutletPage() {
   }
 
   async function orderProduct() {
-    if (!selectedProduct?.staychatWebhook || isOrdering) return;
+    if (
+      !selectedProduct?.staychatWebhook ||
+      ![true, 1, "1"].includes(selectedProduct.order) ||
+      isOrdering
+    ) {
+      return;
+    }
 
     setIsOrdering(true);
     setOrderMessage("");
@@ -503,6 +548,7 @@ export default function OutletPage() {
                 onClick={orderProduct}
                 disabled={
                   isOrdering ||
+                  ![true, 1, "1"].includes(selectedProduct.order) ||
                   selectedProduct.sendStaychat !== "1" ||
                   !selectedProduct.staychatWebhook
                 }

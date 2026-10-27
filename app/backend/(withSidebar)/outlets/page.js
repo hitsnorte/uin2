@@ -7,6 +7,7 @@ import Topbar from "@/components/layout/Topbar";
 import { getReservationShifts } from "@/lib/reservationShifts";
 import { QRCodeCanvas } from "qrcode.react";
 import { IoQrCode } from "react-icons/io5";
+import { FaPencilAlt } from "react-icons/fa";
 
 function getScheduleName(schedule) {
   let data = schedule.schedule_json;
@@ -1328,7 +1329,7 @@ export default function OutletsPage() {
                                 aria-label={`Editar ${item?.item_name1 || "item"}`}
                                 className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                <span aria-hidden="true">✏️</span>
+                                <span aria-hidden="true"><FaPencilAlt size={12} /></span>
                               </button>
                               <button
                                 type="button"
@@ -1587,6 +1588,7 @@ export default function OutletsPage() {
               <Editor
                 value={editorContent}
                 onChange={setEditorContent}
+                outletId={editingId}
               />
             </div>
 
@@ -1686,6 +1688,7 @@ export default function OutletsPage() {
       {editingReservationItem && (
         <ItemModal
           item={editingReservationItem.item}
+          reservationAssignment
           shiftOptions={reservationShifts}
           initialShiftIndex={
             reservationItems[editingReservationItem.assignmentIndex]

@@ -9,42 +9,36 @@ const ProductNode = Node.create({
   addOptions() {
     return {
       onProductClick: null,
+      onProductEdit: null,
+      onProductOrder: null,
     };
   },
 
   addNodeView() {
-    return ({ node, editor, getPos }) => {
+    const options = this.options;
+
+    return ({ node: initialNode, editor, getPos }) => {
+      let node = initialNode;
       const dom = document.createElement("div");
       dom.dataset.productNode = "true";
       dom.contentEditable = "false";
 
-      if (this.options.onProductClick) {
+      if (options.onProductClick) {
         dom.classList.add("product-node-clickable");
         dom.addEventListener("click", (event) => {
           if (event.target instanceof Element && event.target.closest("button")) return;
 
           event.preventDefault();
           event.stopPropagation();
-          this.options.onProductClick(node.attrs.productId);
+          options.onProductClick(
+            node.attrs.productId,
+            node.attrs.sourceItemId
+          );
         });
       }
 
       const content = document.createElement("div");
       content.className = "product-node-content";
-
-      const name = document.createElement("strong");
-      name.textContent = node.attrs.name;
-      content.appendChild(name);
-
-      const description = document.createElement("p");
-      description.textContent = node.attrs.description || "";
-      content.appendChild(description);
-
-      if (node.attrs.productType === "Produto" && node.attrs.price != null) {
-        const price = document.createElement("p");
-        price.textContent = `${Number(node.attrs.price).toFixed(2)} €`;
-        content.appendChild(price);
-      }
 
       const actions = document.createElement("div");
       actions.className = "product-node-actions";
@@ -52,7 +46,7 @@ const ProductNode = Node.create({
       const editButton = document.createElement("button");
       editButton.type = "button";
       editButton.className = "product-node-action product-node-edit";
-      editButton.disabled = true;
+      editButton.disabled = typeof options.onProductEdit !== "function";
       editButton.setAttribute("aria-label", "Editar produto");
       editButton.title = "Editar produto";
 
@@ -65,8 +59,29 @@ const ProductNode = Node.create({
       editIcon.innerHTML =
         '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>';
       editButton.appendChild(editIcon);
+      editButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        options.onProductEdit?.(
+          node.attrs.productId,
+          node.attrs.sourceItemId
+        );
+      };
       actions.appendChild(editButton);
 
+      const orderButton = document.createElement("button");
+      orderButton.type = "button";
+      orderButton.className = "product-node-order";
+      orderButton.textContent = "Pedir";
+      orderButton.setAttribute("aria-label", "Pedir produto");
+      orderButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        options.onProductOrder?.(
+          node.attrs.productId,
+          node.attrs.sourceItemId
+        );
+      };
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "product-node-action product-node-delete";
@@ -95,28 +110,88 @@ const ProductNode = Node.create({
       };
       actions.appendChild(deleteButton);
 
-      if (node.attrs.imageUrl) {
-        const image = document.createElement("img");
-        image.src = node.attrs.imageUrl;
-        image.alt = node.attrs.name;
-        dom.appendChild(image);
+      let image = null;
+      function updateNodeView(updatedNode) {
+        node = updatedNode;
+        const attrs = node.attrs;
+        const requiresConfiguration = attrs.isConfigured === false;
+        editButton.classList.toggle(
+          "product-node-edit-required",
+          requiresConfiguration
+        );
+        editButton.title = requiresConfiguration
+          ? "Obrigatório: configurar e guardar produto"
+          : "Editar produto";
+        editButton.setAttribute(
+          "aria-label",
+          requiresConfiguration
+            ? "Configurar e guardar produto (obrigatório)"
+            : "Editar produto"
+        );
+        content.replaceChildren();
+
+        const heading = document.createElement("div");
+        heading.className = "product-node-heading";
+        const name = document.createElement("strong");
+        name.textContent = attrs.name;
+        heading.appendChild(name);
+
+        const canOrder =
+          typeof options.onProductOrder === "function" &&
+          [true, 1, "1"].includes(attrs.order);
+        orderButton.hidden = !canOrder;
+        if (canOrder) heading.appendChild(orderButton);
+        content.appendChild(heading);
+
+        const description = document.createElement("p");
+        description.textContent = attrs.description || "";
+        content.appendChild(description);
+
+        if (attrs.productType === "Produto" && attrs.price != null) {
+          const price = document.createElement("p");
+          price.textContent = `${Number(attrs.price).toFixed(2)} €`;
+          content.appendChild(price);
+        }
+
+        if (attrs.imageUrl) {
+          if (!image) {
+            image = document.createElement("img");
+            dom.insertBefore(image, actions);
+          }
+          image.src = attrs.imageUrl;
+          image.alt = attrs.name;
+        } else if (image) {
+          image.remove();
+          image = null;
+        }
       }
 
-      dom.prepend(content);
+      dom.appendChild(content);
       dom.appendChild(actions);
+      updateNodeView(node);
 
-      return { dom };
+      return {
+        dom,
+        update(updatedNode) {
+          if (updatedNode.type !== node.type) return false;
+          updateNodeView(updatedNode);
+          return true;
+        },
+      };
     };
   },
 
   addAttributes() {
     return {
       productId: { default: null },
+      sourceItemId: { default: null },
       name: { default: "Produto sem nome" },
       description: { default: "" },
       imageUrl: { default: "" },
       productType: { default: "" },
       price: { default: null },
+      order: { default: false },
+      isConfigured: { default: true },
     };
   },
 

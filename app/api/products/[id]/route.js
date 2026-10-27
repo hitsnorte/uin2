@@ -6,6 +6,10 @@ function toFlag(value) {
   return value === true || value === "1" ? "1" : "0";
 }
 
+function isBooleanFlag(value) {
+  return value === true || value === false || value === 1 || value === 0;
+}
+
 export async function GET(req, context) {
   const params = await context.params;
   const id = Number(params.id);
@@ -34,6 +38,9 @@ export async function PATCH(req, context) {
   }
 
   const body = await req.json();
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json({ error: "Dados do item inválidos." }, { status: 400 });
+  }
   const data = {};
 
   if (Object.hasOwn(body, "item_name1")) {
@@ -54,6 +61,41 @@ export async function PATCH(req, context) {
     } else {
       data.item_price = String(body.item_price).trim();
     }
+  }
+
+  if (Object.hasOwn(body, "item_description1")) {
+    if (
+      body.item_description1 != null &&
+      (typeof body.item_description1 !== "string" ||
+        body.item_description1.length > 150)
+    ) {
+      return Response.json(
+        { error: "A descrição não pode exceder 150 caracteres." },
+        { status: 400 }
+      );
+    }
+    data.item_description1 = body.item_description1?.trim() || null;
+  }
+
+  for (const field of ["takeaway_order", "cart", "order"]) {
+    if (!Object.hasOwn(body, field)) continue;
+    if (!isBooleanFlag(body[field])) {
+      return Response.json(
+        { error: `O campo ${field} deve ser booleano.` },
+        { status: 400 }
+      );
+    }
+    data[field] = Boolean(body[field]);
+  }
+
+  if (Object.hasOwn(body, "checkin")) {
+    if (!isBooleanFlag(body.checkin) && body.checkin !== "0" && body.checkin !== "1") {
+      return Response.json(
+        { error: "O campo checkin deve ser booleano." },
+        { status: 400 }
+      );
+    }
+    data.checkin = toFlag(body.checkin);
   }
 
   if (Object.hasOwn(body, "item_vat")) {
