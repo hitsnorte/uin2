@@ -331,9 +331,6 @@ model Items {
   item_price             String?                  @db.VarChar(45)
   reservation            String?                  @db.VarChar(1)
   checkin                String?                  @db.VarChar(1)
-  takeaway_order         Boolean                  @default(false)
-  cart                   Boolean                  @default(false)
-  order                  Boolean                  @default(false)
   room                   String?                  @db.VarChar(1)
   instantOrder           String?                  @db.VarChar(1)
   sendStaychat           String?                  @db.VarChar(1)
@@ -344,6 +341,9 @@ model Items {
   preparation            Json?
   item_vat               String?                  @db.VarChar(45)
   item_duration          Int?
+  takeaway_order         Boolean                  @default(false)
+  cart                   Boolean                  @default(false)
+  order                  Boolean                  @default(false)
   OutletItems            OutletItems[]
   OutletReservationItems OutletReservationItems[]
 }
@@ -427,4 +427,16 @@ model OutletItems {
 
   @@index([item_id], map: "idx_outlet_items_item_id")
   @@index([outlet_id], map: "idx_outlet_items_outlet_id")
+}
+
+model notifications {
+  notification_id Int       @id @default(autoincrement())
+  user_id         Int
+  title           String    @db.VarChar(255)
+  message         String    @db.Text
+  is_read         Boolean?  @default(false)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_user_created")
+  @@index([user_id, is_read], map: "idx_user_unread")
 }

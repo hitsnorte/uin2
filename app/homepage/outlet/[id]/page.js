@@ -104,7 +104,6 @@ export default function OutletPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openArea, setOpenArea] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [orderQuantity, setOrderQuantity] = useState(1);
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -291,7 +290,6 @@ export default function OutletPage() {
   const activeOutlet = outlets.find(
     (outlet) => Number(outlet.outlet_id) === Number(contentOutletId)
   );
-  const quantity = Math.max(1, Number.parseInt(orderQuantity, 10) || 1);
 
   // ---------------- TIPTAP ----------------
 
@@ -302,8 +300,7 @@ export default function OutletPage() {
       StarterKit,
       Image,
       ProductNode.configure({
-        onProductClick: handleProductClick,
-        onProductOrder: handleProductClick,
+        onProductOrder: openOrderConfirmation,
       }),
     ],
 
@@ -315,7 +312,7 @@ export default function OutletPage() {
     immediatelyRender: false,
   });
 
-  async function handleProductClick(productId, sourceItemId) {
+  async function openOrderConfirmation(productId, sourceItemId) {
     if (!productId) return;
 
     try {
@@ -328,7 +325,6 @@ export default function OutletPage() {
 
       const product = await response.json();
       setSelectedProduct(product);
-      setOrderQuantity(1);
       setOrderMessage("");
     } catch (error) {
       console.error("Não foi possível carregar o item", error);
@@ -353,19 +349,21 @@ export default function OutletPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: selectedProduct.item_id,
-          quantity,
+          quantity: 1,
         }),
       });
 
-      if (!response.ok) throw new Error("Falha ao enviar pedido");
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(result?.error || "Falha ao enviar pedido");
+        }
 
-      setOrderMessage("Pedido enviado com sucesso.");
+        setOrderMessage("Pedido enviado com sucesso.");
     } catch (error) {
-      console.error("Não foi possível enviar o pedido", error);
-      setOrderMessage("Não foi possível enviar o pedido.");
+        console.error("Não foi possível enviar o pedido", error);
+        setOrderMessage(error.message || "Não foi possível enviar o pedido.");
     } finally {
-      setIsOrdering(false);
-      setSelectedProduct(null)
+        setIsOrdering(false);
     }
   }
 
@@ -462,99 +460,52 @@ export default function OutletPage() {
       </div>
 
       {selectedProduct && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isOrdering) {
+              setSelectedProduct(null);
+              setOrderMessage("");
+            }
+          }}
+        >
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedProduct.item_name1 || "Item sem nome"}
-                </h2>
-                {selectedProduct.item_description1 && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    {selectedProduct.item_description1}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedProduct(null)}
-                className="text-xl text-gray-400 hover:text-gray-700"
-                aria-label="Fechar"
-              >
-                x
-              </button>
-            </div>
-
-            <p className="mt-4 text-lg font-semibold text-gray-900">
-              {selectedProduct.item_price
-  ? `${Number(selectedProduct.item_price).toFixed(2)} €`
-  : ''}
-            </p>
-
-            <div className="mt-4">
-              <label htmlFor="order-quantity" className="block text-sm font-medium text-gray-700">
-                Quantidade
-              </label>
-              <div className="mt-2 flex w-fit items-center gap-5">
-                <button
-                  type="button"
-                  onClick={() => setOrderQuantity(String(Math.max(1, quantity - 1)))}
-                  disabled={quantity <= 1}
-                  aria-label="Diminuir quantidade"
-                  className="h-12 w-12 shrink-0 rounded-lg border border-gray-300 bg-white text-lg font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
-                >
-                  -
-                </button>
-                <input
-                  id="order-quantity"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={orderQuantity}
-                  onChange={(event) => setOrderQuantity(event.target.value.replace(/\D/g, ""))}
-                  onBlur={() => setOrderQuantity(String(quantity))}
-                  aria-label="Quantidade"
-                  className="h-12 w-20 rounded-lg border border-gray-300 bg-white text-center text-lg font-semibold text-gray-900 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-700"
-                />
-                <button
-                  type="button"
-                  onClick={() => setOrderQuantity(String(quantity + 1))}
-                  aria-label="Aumentar quantidade"
-                  className="h-12 w-12 shrink-0 rounded-lg border border-gray-300 bg-white text-lg font-medium text-gray-700 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-700"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <p className="mt-3 text-right text-sm font-semibold text-gray-700">
-              Total: {(Number(selectedProduct.item_price || 0) * quantity).toFixed(2)} €
-            </p>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Tem a certeza de que quer pedir{" "}
+              {selectedProduct.item_name1 || "este artigo"}?
+            </h2>
 
             {orderMessage && (
-              <p className="mt-4 text-sm text-gray-700">{orderMessage}</p>
+              <p className="mt-4 text-sm text-gray-700" role="status">
+                {orderMessage}
+              </p>
             )}
 
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setSelectedProduct(null)}
-                className="rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300"
+                onClick={() => {
+                  setSelectedProduct(null);
+                  setOrderMessage("");
+                }}
+                disabled={isOrdering}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Fechar
+                Não
               </button>
               <button
                 type="button"
                 onClick={orderProduct}
                 disabled={
                   isOrdering ||
+                  orderMessage === "Pedido enviado com sucesso." ||
                   ![true, 1, "1"].includes(selectedProduct.order) ||
                   selectedProduct.sendStaychat !== "1" ||
                   !selectedProduct.staychatWebhook
                 }
                 className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
               >
-                {isOrdering ? "A enviar..." : "Pedir"}
+                {isOrdering ? "A enviar..." : "Sim, pedir"}
               </button>
             </div>
           </div>
