@@ -76,6 +76,225 @@ function hydrateProductNodes(value, productsById) {
   );
 }
 
+function buildItemTree(groups, families, categories, products) {
+  const tree = groups.map((group) => ({
+    key: `group-${group.item_group_id}`,
+    type: "group",
+    name: group.item_group_name || "Grupo sem nome",
+    children: [],
+  }));
+  const groupsById = new Map(
+    tree.map((node) => [Number(node.key.slice("group-".length)), node])
+  );
+  let unassignedGroup = null;
+  let unassignedFamily = null;
+  let unassignedSubfamily = null;
+
+  function getUnassignedGroup() {
+    if (!unassignedGroup) {
+      unassignedGroup = {
+        key: "group-unassigned",
+        type: "group",
+        name: "Sem grupo",
+        children: [],
+      };
+      tree.push(unassignedGroup);
+    }
+
+    return unassignedGroup;
+  }
+
+  function getUnassignedFamily() {
+    if (!unassignedFamily) {
+      unassignedFamily = {
+        key: "family-unassigned",
+        type: "family",
+        name: "Sem família",
+        children: [],
+      };
+      getUnassignedGroup().children.push(unassignedFamily);
+    }
+
+    return unassignedFamily;
+  }
+
+  function getUnassignedSubfamily() {
+    if (!unassignedSubfamily) {
+      unassignedSubfamily = {
+        key: "subfamily-unassigned",
+        type: "subfamily",
+        name: "Sem subfamília",
+        children: [],
+      };
+      getUnassignedFamily().children.push(unassignedSubfamily);
+    }
+
+    return unassignedSubfamily;
+  }
+
+  const familiesById = new Map();
+  families.forEach((family) => {
+    const familyNode = {
+      key: `family-${family.item_family_id}`,
+      type: "family",
+      name: family.item_family_name || "Família sem nome",
+      children: [],
+    };
+    const groupNode = groupsById.get(Number(family.item_group_id));
+    (groupNode || getUnassignedGroup()).children.push(familyNode);
+    familiesById.set(Number(family.item_family_id), familyNode);
+  });
+
+  const subfamiliesById = new Map();
+  categories.forEach((category) => {
+    const subfamilyNode = {
+      key: `subfamily-${category.item_subfamily_id}`,
+      type: "subfamily",
+      name: category.category_name1 || "Subfamília sem nome",
+      children: [],
+    };
+    const familyNode =
+      familiesById.get(Number(category.item_family_id)) ||
+      getUnassignedFamily();
+    familyNode.children.push(subfamilyNode);
+    subfamiliesById.set(Number(category.item_subfamily_id), subfamilyNode);
+  });
+
+  products.forEach((product) => {
+    const subfamilyNode =
+      subfamiliesById.get(Number(product.item_cat_id)) ||
+      getUnassignedSubfamily();
+    subfamilyNode.children.push({
+      key: `item-${product.item_id}`,
+      type: "item",
+      name: product.item_name1 || "Item sem nome",
+      product,
+      children: [],
+    });
+  });
+
+  function finalizeNode(node) {
+    node.children.sort((first, second) =>
+      first.name.localeCompare(second.name, "pt")
+    );
+    node.productIds =
+      node.type === "item"
+        ? [Number(node.product.item_id)]
+        : node.children.flatMap(finalizeNode);
+    return node.productIds;
+  }
+
+  tree.sort((first, second) => first.name.localeCompare(second.name, "pt"));
+  tree.forEach(finalizeNode);
+  return tree;
+}
+
+function filterItemTree(node, search) {
+  if (node.type === "item") {
+    return node.name.toLowerCase().includes(search) ? node : null;
+  }
+
+  const children = node.children
+    .map((child) => filterItemTree(child, search))
+    .filter(Boolean);
+
+  return children.length > 0 ? { ...node, children } : null;
+}
+
+function ItemTreeNode({
+  node,
+  depth,
+  selectedIds,
+  expandedNodeIds,
+  forceExpanded,
+  onToggleSelection,
+  onToggleExpanded,
+}) {
+  const productIds = node.productIds;
+  const selectedCount = productIds.filter((id) => selectedIds.has(id)).length;
+  const isSelected = productIds.length > 0 && selectedCount === productIds.length;
+  const isPartiallySelected = selectedCount > 0 && !isSelected;
+  const isExpanded = forceExpanded || expandedNodeIds.has(node.key);
+  const hasChildren = node.children.length > 0;
+
+  return (
+    <li
+      role="treeitem"
+      aria-expanded={hasChildren ? isExpanded : undefined}
+      aria-selected={isSelected}
+    >
+      <div
+        className="flex min-h-10 items-center gap-2 rounded-lg pr-3 hover:bg-gray-50"
+        style={{ paddingLeft: `${depth * 18 + 8}px` }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => onToggleExpanded(node.key)}
+            aria-label={`${isExpanded ? "Recolher" : "Expandir"} ${node.name}`}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-gray-200"
+          >
+            {isExpanded ? "▾" : "▸"}
+          </button>
+        ) : (
+          <span className="h-7 w-7 shrink-0" />
+        )}
+
+        <input
+          type="checkbox"
+          checked={isSelected}
+          disabled={productIds.length === 0}
+          ref={(element) => {
+            if (element) element.indeterminate = isPartiallySelected;
+          }}
+          onChange={() => onToggleSelection(productIds)}
+          aria-label={`Selecionar ${node.name}`}
+          className="h-4 w-4 shrink-0 accent-blue-600"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            hasChildren ? onToggleExpanded(node.key) : onToggleSelection(productIds)
+          }
+          className={`min-w-0 flex-1 truncate text-left text-sm ${
+            node.type === "item"
+              ? "text-gray-700"
+              : "font-medium text-gray-800"
+          }`}
+        >
+          {node.name}
+        </button>
+        {node.type === "item" ? (
+          <span className="shrink-0 text-xs text-gray-500">
+            {Number(node.product.item_price || 0).toFixed(2)} €
+          </span>
+        ) : (
+          <span className="shrink-0 text-xs text-gray-400">
+            {productIds.length}
+          </span>
+        )}
+      </div>
+
+      {hasChildren && isExpanded && (
+        <ul role="group">
+          {node.children.map((child) => (
+            <ItemTreeNode
+              key={child.key}
+              node={child}
+              depth={depth + 1}
+              selectedIds={selectedIds}
+              expandedNodeIds={expandedNodeIds}
+              forceExpanded={forceExpanded}
+              onToggleSelection={onToggleSelection}
+              onToggleExpanded={onToggleExpanded}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export default function Editor({ value, onChange }) {
   const [selectedPos, setSelectedPos] = useState(null);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
@@ -83,43 +302,55 @@ export default function Editor({ value, onChange }) {
   const [products, setProducts] = useState([]);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [draftProductIds, setDraftProductIds] = useState([]);
-
   const [categories, setCategories] = useState([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [families, setFamilies] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [productSearch, setProductSearch] = useState("");
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [expandedNodeIds, setExpandedNodeIds] = useState(new Set());
+  const [itemTreeLoading, setItemTreeLoading] = useState(true);
+  const [itemTreeError, setItemTreeError] = useState("");
 
   useEffect(() => {
-    async function fetchProducts() {
+    async function fetchItemTreeData() {
       try {
-        const res = await fetch("/api/products");
-        const data = await res.json();
-        setProducts(data || []);
-      } catch (err) {
-        console.error("Failed to load products", err);
-      }
-    }
+        const endpoints = [
+          "/api/productGroups",
+          "/api/productFamilies",
+          "/api/productCategories",
+          "/api/products",
+        ];
+        const responses = await Promise.all(
+          endpoints.map(async (endpoint) => {
+            const response = await fetch(endpoint);
+            if (!response.ok) {
+              throw new Error(
+                `Falha ao carregar ${endpoint} (${response.status})`
+              );
+            }
+            return response.json();
+          })
+        );
 
-    fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const res = await fetch("/api/productCategories");
-
-        if (!res.ok) {
-          throw new Error("Failed to load categories");
+        if (responses.some((data) => !Array.isArray(data))) {
+          throw new Error("Os dados da estrutura de itens são inválidos.");
         }
 
-        const data = await res.json();
-        setCategories(data || []);
+        const [loadedGroups, loadedFamilies, loadedCategories, loadedProducts] =
+          responses;
+        setGroups(loadedGroups);
+        setFamilies(loadedFamilies);
+        setCategories(loadedCategories);
+        setProducts(loadedProducts);
+        setItemTreeError("");
       } catch (err) {
-        console.error("Failed to load categories", err);
+        console.error("Failed to load item structure", err);
+        setItemTreeError("Não foi possível carregar a estrutura de itens.");
+      } finally {
+        setItemTreeLoading(false);
       }
     }
 
-    fetchCategories();
+    fetchItemTreeData();
   }, []);
 
   async function resolveSelectedProducts(ids) {
@@ -149,20 +380,6 @@ export default function Editor({ value, onChange }) {
       return [];
     }
   }
-
-  function toggleCategory(categoryId) {
-  setSelectedCategoryIds((current) => {
-    const id = Number(categoryId);
-
-    return current.includes(id)
-      ? current.filter((currentId) => currentId !== id)
-      : [...current, id];
-  });
-}
-
-function clearCategoryFilters() {
-  setSelectedCategoryIds([]);
-}
 
   const initialEditorContent =
     value && typeof value === "object" && value.editor
@@ -314,12 +531,33 @@ function clearCategoryFilters() {
     setSelectedPos(null);
   }
 
-  function toggleProductSelection(productId) {
-    setDraftProductIds((current) =>
-      current.includes(productId)
-        ? current.filter((id) => id !== productId)
-        : [...current, productId]
-    );
+  function toggleNodeSelection(productIds) {
+    setDraftProductIds((current) => {
+      const currentIds = new Set(current.map(Number));
+      const shouldDeselect = productIds.every((id) => currentIds.has(id));
+
+      productIds.forEach((id) => {
+        if (shouldDeselect) {
+          currentIds.delete(id);
+        } else {
+          currentIds.add(id);
+        }
+      });
+
+      return [...currentIds];
+    });
+  }
+
+  function toggleNodeExpanded(nodeId) {
+    setExpandedNodeIds((current) => {
+      const next = new Set(current);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
   }
 
   function getEditorProductIds() {
@@ -330,8 +568,9 @@ function clearCategoryFilters() {
 
   function addSelectedProducts() {
     const editorProductIds = getEditorProductIds();
+    const editorProductIdSet = new Set(editorProductIds.map(Number));
     const newProductIds = draftProductIds.filter((productId) =>
-      !editorProductIds.includes(productId)
+      !editorProductIdSet.has(Number(productId))
     );
 
     if (newProductIds.length === 0) {
@@ -341,7 +580,9 @@ function clearCategoryFilters() {
     }
 
     const productsToInsert = newProductIds
-      .map((productId) => products.find((product) => product.item_id === productId))
+      .map((productId) =>
+        products.find((product) => Number(product.item_id) === Number(productId))
+      )
       .filter(Boolean);
 
     editor
@@ -370,26 +611,18 @@ function clearCategoryFilters() {
     setProductModalOpen(false);
   }
 
-  const filteredProducts = products.filter((product) => {
-    const productName = String(product.item_name1 || "").toLowerCase();
-    const search = productSearch.trim().toLowerCase();
+  const itemTree = buildItemTree(groups, families, categories, products);
+  const normalizedSearch = productSearch.trim().toLowerCase();
+  const visibleItemTree = normalizedSearch
+    ? itemTree
+        .map((node) => filterItemTree(node, normalizedSearch))
+        .filter(Boolean)
+    : itemTree;
+  const draftProductIdSet = new Set(draftProductIds.map(Number));
 
-    // Pesquisa por nome
-    const matchesSearch =
-      search === "" || productName.includes(search);
-
-    // Categorias
-    const matchesCategory =
-      selectedCategoryIds.length === 0 ||
-      selectedCategoryIds.some(
-        (categoryId) =>
-          Number(categoryId) === Number(product.item_cat_id)
-      );
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const hasNewDraftProducts = draftProductIds.some((id) => !selectedProductIds.includes(id));
+  const hasNewDraftProducts = draftProductIds.some(
+    (id) => !selectedProductIds.map(Number).includes(Number(id))
+  );
 
   return (
     <div className="relative border rounded-xl bg-white shadow-sm flex flex-col h-full overflow-hidden">
@@ -507,310 +740,75 @@ function clearCategoryFilters() {
 
 {productModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl min-h-[600px]">
-
-      {/* HEADER */}
+    <div className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Selecionar Itens
-          </h2>
-
+          <h2 className="text-lg font-semibold text-gray-900">Selecionar Itens</h2>
           <p className="text-sm text-gray-500">
-            Escolha um ou mais itens para adicionar como cartões.
+            Selecione itens individuais ou um grupo, família ou subfamília completa.
           </p>
         </div>
-
         <button
           type="button"
-          onClick={() => {
-            setCategoryDropdownOpen(false);
-            setProductModalOpen(false);
-          }}
+          onClick={() => setProductModalOpen(false)}
           className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
         >
           Fechar
         </button>
       </div>
 
-      {/* CONTENT */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 py-4">
+        <div className="relative shrink-0">
+          <input
+            type="search"
+            value={productSearch}
+            onChange={(event) => setProductSearch(event.target.value)}
+            placeholder="Pesquisar itens..."
+            aria-label="Pesquisar itens"
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
 
-        {/* PESQUISA + FILTRO */}
-        <div className="mb-5 flex flex-col gap-3">
-
-          {/* SEARCHBAR + FILTRO */}
-          <div className="flex items-center gap-2">
-
-            {/* SEARCHBAR */}
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Pesquisar produto..."
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 pl-10 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-
-              <svg
-                className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-gray-200 p-2">
+          {itemTreeLoading ? (
+            <p className="px-3 py-4 text-sm text-gray-500">A carregar estrutura de itens...</p>
+          ) : itemTreeError ? (
+            <p role="alert" className="px-3 py-4 text-sm text-red-600">{itemTreeError}</p>
+          ) : visibleItemTree.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-gray-500">
+              {normalizedSearch ? "Não foram encontrados itens." : "Não existem itens para selecionar."}
+            </p>
+          ) : (
+            <ul role="tree" aria-label="Estrutura de itens" className="space-y-0.5">
+              {visibleItemTree.map((node) => (
+                <ItemTreeNode
+                  key={node.key}
+                  node={node}
+                  depth={0}
+                  selectedIds={draftProductIdSet}
+                  expandedNodeIds={expandedNodeIds}
+                  forceExpanded={Boolean(normalizedSearch)}
+                  onToggleSelection={toggleNodeSelection}
+                  onToggleExpanded={toggleNodeExpanded}
                 />
-              </svg>
-            </div>
-
-            {/* BOTÃO FILTRO */}
-            <div className="relative">
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCategoryDropdownOpen((current) => !current)
-                }
-                className={`relative flex h-11 w-11 items-center justify-center rounded-xl border transition ${
-                  selectedCategoryIds.length > 0
-                    ? "border-blue-500 bg-blue-50 text-blue-600"
-                    : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"
-                }`}
-                title="Filtrar por categoria"
-              >
-                {/* ÍCONE FILTRO */}
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 5h18M6 12h12M10 19h4"
-                  />
-                </svg>
-
-                {/* CONTADOR */}
-                {selectedCategoryIds.length > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
-                    {selectedCategoryIds.length}
-                  </span>
-                )}
-              </button>
-
-              {/* DROPDOWN CATEGORIAS */}
-              {categoryDropdownOpen && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-
-                  {/* HEADER DROPDOWN */}
-                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                    <span className="text-sm font-semibold text-gray-800">
-                      Categorias
-                    </span>
-
-                    {selectedCategoryIds.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={clearCategoryFilters}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        Limpar
-                      </button>
-                    )}
-                  </div>
-
-                  {/* LISTA DE CATEGORIAS */}
-                  <div className="max-h-64 overflow-y-auto p-2">
-
-                    {categories.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-500">
-                        A carregar...
-                      </p>
-                    ) : (
-                      categories.map((category, index) => {
-                        const categoryId = Number(
-                          category.item_subfamily_id
-                        );
-
-                        const isSelected =
-                          selectedCategoryIds.includes(categoryId);
-
-                        return (
-                          <label
-                            key={`${category.item_subfamily_id}-${index}`}
-                            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition ${
-                              isSelected
-                                ? "bg-blue-50"
-                                : "hover:bg-gray-50"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() =>
-                                toggleCategory(categoryId)
-                              }
-                              className="h-4 w-4 rounded accent-blue-600"
-                            />
-
-                            <span
-                              className={`text-sm ${
-                                isSelected
-                                  ? "font-medium text-blue-700"
-                                  : "text-gray-700"
-                              }`}
-                            >
-                              {category.category_name1 ||
-                                "Sem categoria"}
-                            </span>
-                          </label>
-                        );
-                      })
-                    )}
-
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* FILTROS ATIVOS */}
-          {(productSearch || selectedCategoryIds.length > 0) && (
-            <div className="flex flex-wrap items-center gap-2">
-
-              {/* PESQUISA ATIVA */}
-              {productSearch && (
-                <div className="flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
-                  <span>
-                    Pesquisa: <strong>{productSearch}</strong>
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setProductSearch("")}
-                    className="ml-1 text-gray-500 hover:text-gray-900"
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-
-              {/* CATEGORIAS ATIVAS */}
-              {selectedCategoryIds.map((categoryId) => {
-                const category = categories.find(
-                  (item) =>
-                    Number(item.item_subfamily_id) ===
-                    Number(categoryId)
-                );
-
-                if (!category) return null;
-
-                return (
-                  <div
-                    key={categoryId}
-                    className="flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs text-blue-700"
-                  >
-                    <span>
-                      {category.category_name1}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        toggleCategory(categoryId)
-                      }
-                      className="ml-1 font-bold text-blue-500 hover:text-blue-800"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+              ))}
+            </ul>
           )}
         </div>
 
-        {/* PRODUTOS */}
-        {products.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            A carregar itens...
-          </p>
-        ) : filteredProducts.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            Não existem itens que correspondam aos filtros.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {filteredProducts.map((product) => {
-              const isSelected = draftProductIds.includes(
-                product.item_id
-              );
-
-              return (
-                <label
-                  key={product.item_id}
-                  className={`flex cursor-pointer flex-col gap-3 rounded-2xl border px-4 py-4 transition ${
-                    isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {product.item_name1 ||
-                          "Item sem nome"}
-                      </p>
-
-                      <p className="text-xs text-gray-500">
-                        {Number(
-                          product.item_price || 0
-                        ).toFixed(2)}
-                        €
-                      </p>
-                    </div>
-
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() =>
-                        toggleProductSelection(
-                          product.item_id
-                        )
-                      }
-                      className="mt-1 h-4 w-4 accent-blue-600"
-                    />
-
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        )}
+        <p className="shrink-0 text-sm text-gray-500">
+          {draftProductIds.length} item(ns) selecionado(s)
+        </p>
       </div>
 
-      {/* FOOTER */}
       <div className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-
         <button
           type="button"
-          onClick={() => {
-            setCategoryDropdownOpen(false);
-            setProductModalOpen(false);
-          }}
+          onClick={() => setProductModalOpen(false)}
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
         >
           Cancelar
         </button>
-
         <button
           type="button"
           disabled={!hasNewDraftProducts}
@@ -823,12 +821,10 @@ function clearCategoryFilters() {
         >
           Adicionar Itens
         </button>
-
       </div>
     </div>
   </div>
 )}
-
     </div>
   );
 }
