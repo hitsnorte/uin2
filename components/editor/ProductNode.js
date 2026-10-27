@@ -49,11 +49,39 @@ const ProductNode = Node.create({
       const actions = document.createElement("div");
       actions.className = "product-node-actions";
 
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "product-node-action product-node-edit";
+      editButton.disabled = true;
+      editButton.setAttribute("aria-label", "Editar produto");
+      editButton.title = "Editar produto";
+
+      const editIcon = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
+      editIcon.setAttribute("viewBox", "0 0 24 24");
+      editIcon.setAttribute("aria-hidden", "true");
+      editIcon.innerHTML =
+        '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/>';
+      editButton.appendChild(editIcon);
+      actions.appendChild(editButton);
+
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
-      deleteButton.className = "product-node-delete";
-      deleteButton.textContent = "Remover";
+      deleteButton.className = "product-node-action product-node-delete";
+      deleteButton.setAttribute("aria-label", "Remover produto");
       deleteButton.title = "Remover produto";
+
+      const deleteIcon = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
+      deleteIcon.setAttribute("viewBox", "0 0 24 24");
+      deleteIcon.setAttribute("aria-hidden", "true");
+      deleteIcon.innerHTML =
+        '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>';
+      deleteButton.appendChild(deleteIcon);
       deleteButton.onclick = (event) => {
         event.preventDefault();
         event.stopPropagation();
