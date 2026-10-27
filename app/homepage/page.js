@@ -1216,31 +1216,32 @@ export default function Homepage() {
                     }}
                   >
                     <div className="flex flex-col items-stretch justify-center gap-2 w-max h-full backdrop-blur-[1px]">
-                    <div
-                      className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-3 backdrop-blur-[1px]"
-                      style={{
-                        color: theme.cardTextColor,
-                        fontSize: `${theme.cardTextSize}px`
-                      }}
-                    >
-                      <span>{getName(item, cardNamePrefix)}</span>
-                    </div>
+  {/* Div do Nome */}
+  <div
+    className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-3 backdrop-blur-[1px]"
+    style={{
+      color: theme.cardTextColor,
+      fontSize: `${theme.cardTextSize}px`
+    }}
+  >
+    <span>{getName(item, cardNamePrefix)}</span>
+  </div>
 
-                    <div
-                      className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
-                      style={{
-                        color: theme.cardTextColor,
-                        fontSize: `${theme.cardTextSize}px`
-                      }}
-                    >
-                      {selectedArea !== null &&
-                        outletScheduleLabels[item.outlet_id] && (
-                          <span className="text-xs font-bold flex items-center justify-center gap-1">
-                            <TbClockHour3 size={20} /> {outletScheduleLabels[item.outlet_id]}
-                          </span>
-                        )}
-                    </div>
-                  </div>
+  {/* Div das Horas - Só aparece se houver conteúdo */}
+  {selectedArea !== null && outletScheduleLabels[item.outlet_id] && (
+    <div
+      className="flex flex-col items-center gap-1 px-3 text-center bg-white/50 rounded-lg py-1 backdrop-blur-[1px]"
+      style={{
+        color: theme.cardTextColor,
+        fontSize: `${theme.cardTextSize}px`
+      }}
+    >
+      <span className="text-xs font-bold flex items-center justify-center gap-1">
+        <TbClockHour3 size={20} /> {outletScheduleLabels[item.outlet_id]}
+      </span>
+    </div>
+  )}
+</div>
                   </div>
                 ))}
               </div>
