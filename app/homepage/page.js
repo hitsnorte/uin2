@@ -10,6 +10,7 @@ import { CiUser } from "react-icons/ci";
 // import de sign in/sign up
 import SignUpModal from "@/components/sign/signUp";
 import SignInModal from "@/components/sign/signIn";
+import { IoMdNotificationsOutline } from "react-icons/io";
 import FrontendHeader from "@/components/layout/frontend/header";
 
 import { useTranslations } from "@/app/hooks/useTranslations";
@@ -1112,6 +1113,19 @@ export default function Homepage() {
                 <div className="flex items-center justify-center">
                   {renderLanguageSelector("compact")}
                 </div>
+
+                <button
+                  type="button"
+                  //onClick= MUDAR QUANDO HOUVER TABELA DE NOTIFICAÇÕES
+                  className="px-3 py-2 sm:px-5 sm:py-3 rounded-full font-medium backdrop-blur-xl border transition-all duration-300 shadow-lg hover:scale-105 active:scale-95"
+                  style={{
+                    background: "rgba(255,255,255,0.25)",
+                    color: theme.text,
+                    borderColor: "rgba(255,255,255,0.3)",
+                  }}
+                >
+                  <IoMdNotificationsOutline size={18} className="sm:size-5" />
+                </button>
 
                 <button
                   type="button"
