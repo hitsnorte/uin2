@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import {
+  buildOutletItemSnapshot,
+  validateOutletReservationItems,
+} from "@/lib/outletReservationItems";
 
 function toBooleanFlag(value) {
   return value === true || value === 1 || value === "1";
@@ -36,23 +40,6 @@ async function getSelectedScheduleId(body, existingOutlet, isRequired) {
   return schedule ? scheduleId : null;
 }
 
-async function getTableReservationItemId(value) {
-  const itemId = Number(value);
-  if (!Number.isSafeInteger(itemId) || itemId <= 0) return null;
-
-  const item = await prisma.items.findFirst({
-    where: { item_id: itemId, item_type: "Reserva de mesa" },
-    select: { item_id: true },
-  });
-
-  return item?.item_id ?? null;
-}
-
-function getReservationDuration(value) {
-  const duration = Number(value);
-  return Number.isSafeInteger(duration) && duration > 0 ? duration : null;
-}
-
 // UPDATE
 export async function PUT(req, context) {
   try {
@@ -66,11 +53,30 @@ export async function PUT(req, context) {
     const body = await req.json();
     const existingOutlet = await prisma.outlets.findUnique({
       where: { outlet_id: id },
+      include: {
+        reservationItems: {
+          select: {
+            outlet_reservation_item_id: true,
+            item_id: true,
+            shift_index: true,
+          },
+        },
+      },
     });
 
     if (!existingOutlet) {
       return Response.json({ error: "Outlet não encontrado" }, { status: 404 });
     }
+
+    const referencedSnapshot = existingOutlet.reservation_item_id
+      ? await prisma.outletItems.findFirst({
+          where: {
+            outlet_item_id: existingOutlet.reservation_item_id,
+            outlet_id: id,
+            is_reservation_item: true,
+          },
+        })
+      : null;
 
     const scheduleVisiblePart = getScheduleVisiblePart(
       body.schedule_visible_part,
@@ -117,76 +123,115 @@ export async function PUT(req, context) {
       return Response.json(updated);
     }
 
-    const reservationItemIdValue =
-      body.reservation_item_id === undefined
-        ? existingOutlet.reservation_item_id
-        : body.reservation_item_id;
-    const reservationItemId = reservationEnabled
-      ? await getTableReservationItemId(reservationItemIdValue)
-      : null;
-    if (reservationEnabled && reservationItemId === null) {
+    const reservationItemsInput =
+      body.reservation_items ??
+      (body.reservation_item_id !== undefined
+        ? body.reservation_item_id
+          ? [{ item_id: body.reservation_item_id, shift_index: 0 }]
+          : []
+        : existingOutlet.reservationItems.length
+          ? existingOutlet.reservationItems
+          : referencedSnapshot
+            ? [referencedSnapshot]
+            : []);
+    const reservationItems = reservationEnabled
+      ? await validateOutletReservationItems(
+          prisma,
+          reservationItemsInput,
+          selectedScheduleId
+        )
+      : { items: [] };
+    if (reservationItems.error) {
       return Response.json(
-        { error: "Selecione um item válido do tipo Reserva de mesa." },
-        { status: 400 }
-      );
-    }
-    const reservationDurationValue =
-      body.reservation_duration === undefined
-        ? existingOutlet.reservation_duration
-        : body.reservation_duration;
-    const reservationDuration = reservationEnabled
-      ? getReservationDuration(reservationDurationValue)
-      : null;
-    if (reservationEnabled && reservationDuration === null) {
-      return Response.json(
-        { error: "Indique uma duração válida em minutos para a reserva." },
+        { error: reservationItems.error },
         { status: 400 }
       );
     }
 
-    const updated = await prisma.outlets.update({
-      where: {
-        outlet_id: id,
-      },
-      data: {
-        outlet_name1: body.outlet_name1 || null,
-        outlet_name2: body.outlet_name2 || null,
-        outlet_name3: body.outlet_name3 || null,
-        outlet_name4: body.outlet_name4 || null,
-        outlet_name5: body.outlet_name5 || null,
-        // outlet_type: Number(body.outlet_type) || 1,
-        area_id: Number(body.area_id),
-        visible: body.visible ?? true,
-        outlet_card_background: body.outlet_card_background || null,
-        schedule_id: selectedScheduleId,
-        schedule_visible_part: scheduleVisiblePart,
-        reservation_item_id: reservationItemId,
-        reservation_duration: reservationDuration,
-        ...(body.schedule_visible !== undefined && {
-          schedule_visible: toBooleanFlag(body.schedule_visible),
-        }),
-        ...(body.associate_schedule !== undefined && {
-          associate_schedule: toBooleanFlag(body.associate_schedule),
-        }),
-        ...(body.access_points !== undefined && {
-          access_points: toBooleanFlag(body.access_points),
-        }),
-        ...(body.reservation !== undefined && {
-          reservation: toNumericFlag(body.reservation),
-        }),
-        ...(body.service_reservation !== undefined && {
-          service_reservation: toBooleanFlag(body.service_reservation),
-        }),
-        ...(body.takeaway_order !== undefined && {
-          takeaway_order: toBooleanFlag(body.takeaway_order),
-        }),
-        ...(body.order !== undefined && {
-          order: toNumericFlag(body.order),
-        }),
-        ...(body.instant_order !== undefined && {
-          instant_order: toBooleanFlag(body.instant_order),
-        }),
-      },
+    const updated = await prisma.$transaction(async (transaction) => {
+      await transaction.outlets.update({
+        where: { outlet_id: id },
+        data: {
+          outlet_name1: body.outlet_name1 || null,
+          outlet_name2: body.outlet_name2 || null,
+          outlet_name3: body.outlet_name3 || null,
+          outlet_name4: body.outlet_name4 || null,
+          outlet_name5: body.outlet_name5 || null,
+          // outlet_type: Number(body.outlet_type) || 1,
+          area_id: Number(body.area_id),
+          visible: body.visible ?? true,
+          outlet_card_background: body.outlet_card_background || null,
+          schedule_id: selectedScheduleId,
+          schedule_visible_part: scheduleVisiblePart,
+          reservation_item_id: null,
+          ...(body.schedule_visible !== undefined && {
+            schedule_visible: toBooleanFlag(body.schedule_visible),
+          }),
+          ...(body.associate_schedule !== undefined && {
+            associate_schedule: toBooleanFlag(body.associate_schedule),
+          }),
+          ...(body.access_points !== undefined && {
+            access_points: toBooleanFlag(body.access_points),
+          }),
+          ...(body.reservation !== undefined && {
+            reservation: toNumericFlag(body.reservation),
+          }),
+          ...(body.service_reservation !== undefined && {
+            service_reservation: toBooleanFlag(body.service_reservation),
+          }),
+          ...(body.takeaway_order !== undefined && {
+            takeaway_order: toBooleanFlag(body.takeaway_order),
+          }),
+          ...(body.order !== undefined && {
+            order: toNumericFlag(body.order),
+          }),
+          ...(body.instant_order !== undefined && {
+            instant_order: toBooleanFlag(body.instant_order),
+          }),
+        },
+      });
+
+      await transaction.outletReservationItems.deleteMany({
+        where: { outlet_id: id },
+      });
+      await transaction.outletItems.deleteMany({
+        where: { outlet_id: id, is_reservation_item: true },
+      });
+      let firstOutletItem = null;
+      if (reservationItems.items.length) {
+        await transaction.outletReservationItems.createMany({
+          data: reservationItems.items.map(({ item_id, shift_index }) => ({
+            outlet_id: id,
+            item_id,
+            shift_index,
+          })),
+        });
+        for (const item of reservationItems.items) {
+          const outletItem = await transaction.outletItems.create({
+            data: buildOutletItemSnapshot(item, id, selectedScheduleId),
+          });
+          firstOutletItem ??= outletItem;
+        }
+      }
+      if (firstOutletItem) {
+        await transaction.outlets.update({
+          where: { outlet_id: id },
+          data: { reservation_item_id: firstOutletItem.outlet_item_id },
+        });
+      }
+
+      return transaction.outlets.findUnique({
+        where: { outlet_id: id },
+        include: {
+          reservationItems: {
+            select: {
+              outlet_reservation_item_id: true,
+              item_id: true,
+              shift_index: true,
+            },
+          },
+        },
+      });
     });
 
     return Response.json(updated);

@@ -15,6 +15,33 @@ export async function GET() {
 // CREATE
 export async function POST(req) {
   const body = await req.json();
+  const itemDuration =
+    body.item_duration != null && body.item_duration !== ""
+      ? Number(body.item_duration)
+      : null;
+
+  if (
+    itemDuration !== null &&
+    (!Number.isSafeInteger(itemDuration) || itemDuration <= 0)
+  ) {
+    return Response.json(
+      { error: "A duração do item deve ser um número inteiro positivo." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    body.item_vat != null &&
+    body.item_vat !== "" &&
+    (!Number.isFinite(Number(body.item_vat)) ||
+      Number(body.item_vat) < 0 ||
+      Number(body.item_vat) > 100)
+  ) {
+    return Response.json(
+      { error: "O IVA deve ser uma percentagem entre 0 e 100." },
+      { status: 400 }
+    );
+  }
 
   const created = await prisma.items.create({
     data: {
@@ -33,6 +60,11 @@ export async function POST(req) {
         body.item_price != null && body.item_price !== ""
           ? String(body.item_price).trim()
           : null,
+      item_vat:
+        body.item_vat != null && body.item_vat !== ""
+          ? String(body.item_vat).trim()
+          : null,
+      item_duration: itemDuration,
       visiblePrice: toFlag(body.visiblePrice),
       item_type: body.item_type ?? null,
       allowReservations: toFlag(body.allowReservations),

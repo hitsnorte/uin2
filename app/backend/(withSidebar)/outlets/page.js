@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Editor from "@/components/editor/page.js";
+import ItemModal from "@/components/items/ItemModal";
 import Topbar from "@/components/layout/Topbar";
+import { getReservationShifts } from "@/lib/reservationShifts";
 import { QRCodeCanvas } from "qrcode.react";
 import { IoQrCode } from "react-icons/io5";
 
@@ -79,6 +81,8 @@ export default function OutletsPage() {
   const [schedules, setSchedules] = useState([]);
   const [accessPointOptions, setAccessPointOptions] = useState([]);
   const [tableReservationItems, setTableReservationItems] = useState([]);
+  const [reservationItems, setReservationItems] = useState([]);
+  const [reservationItemToAddId, setReservationItemToAddId] = useState("");
 
   const [search, setSearch] = useState("");
 
@@ -94,6 +98,7 @@ export default function OutletsPage() {
   const [visibilityUpdatingId, setVisibilityUpdatingId] = useState(null);
 
   const [showContentModal, setShowContentModal] = useState(false);
+  const [editingReservationItem, setEditingReservationItem] = useState(null);
   const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [editorContent, setEditorContent] = useState(null);
   const [qrOutlet, setQrOutlet] = useState(null);
@@ -110,8 +115,6 @@ export default function OutletsPage() {
     outlet_name5: "",
     area_id: "",
     schedule_id: "",
-    reservation_item_id: "",
-    reservation_duration: "",
     schedule_visible: false,
     schedule_visible_part: 2,
     associate_schedule: false,
@@ -205,8 +208,6 @@ export default function OutletsPage() {
       outlet_name5: "",
       area_id: "",
       schedule_id: "",
-      reservation_item_id: "",
-      reservation_duration: "",
       schedule_visible: false,
       schedule_visible_part: 2,
       associate_schedule: false,
@@ -228,6 +229,8 @@ export default function OutletsPage() {
     setExistingImage(null);
 
     setShowModal(true);
+    setReservationItems([]);
+    setReservationItemToAddId("");
   }
 
   // ---------------- EDIT ----------------
@@ -243,10 +246,6 @@ export default function OutletsPage() {
       outlet_name5: outlet.outlet_name5 || "",
       area_id: outlet.area_id || "",
       schedule_id: outlet.schedule_id ? String(outlet.schedule_id) : "",
-      reservation_item_id: outlet.reservation_item_id
-        ? String(outlet.reservation_item_id)
-        : "",
-      reservation_duration: outlet.reservation_duration ?? "",
       schedule_visible: outlet.schedule_visible ?? false,
       schedule_visible_part: outlet.schedule_visible_part ?? 2,
       associate_schedule: outlet.associate_schedule ?? false,
@@ -257,6 +256,29 @@ export default function OutletsPage() {
       order: outlet.order === 1 || outlet.order === "1",
       instant_order: outlet.instant_order ?? false,
     });
+    const snapshotItems = outlet.OutletItems || [];
+    setReservationItems(
+      snapshotItems.length
+        ? snapshotItems.map((item) => ({
+            ...item,
+            item_id: Number(item.item_id),
+            shift_index: Number(item.shift_index),
+          }))
+        : outlet.reservationItems?.length
+          ? outlet.reservationItems.map((assignment) => {
+              const item = tableReservationItems.find(
+                (candidate) =>
+                  Number(candidate.item_id) === Number(assignment.item_id)
+              );
+              return {
+                ...item,
+                item_id: Number(assignment.item_id),
+                shift_index: Number(assignment.shift_index),
+              };
+            })
+          : []
+    );
+    setReservationItemToAddId("");
 
     setActiveTab("general");
     setAccessRooms([{ id: null, name: "Sala 1", points: [] }]);
@@ -295,10 +317,68 @@ export default function OutletsPage() {
   // ---------------- FORM ----------------
 
   function handleChange(e) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setForm((currentForm) => ({ ...currentForm, [name]: value }));
+  }
+
+  function addReservationItem() {
+    const itemId = Number(reservationItemToAddId);
+    if (!itemId) return;
+
+    setReservationItems((currentItems) => [
+      ...currentItems,
+      {
+        ...tableReservationItems.find(
+          (item) => Number(item.item_id) === itemId
+        ),
+        item_id: itemId,
+        shift_index: reservationShifts[0]?.shift_index ?? 0,
+        reservation: false,
+        takeaway_order: false,
+        cart: false,
+        order: false,
+        checkin: false,
+        client_id: crypto.randomUUID(),
+      },
+    ]);
+    setReservationItemToAddId("");
+  }
+
+  async function handleReservationItemSaved(updatedItem, shiftIndex, assignmentIndex) {
+    const assignment = reservationItems[assignmentIndex];
+    const updatedAssignment = {
+      ...assignment,
+      ...updatedItem,
+      shift_index: Number(shiftIndex),
+    };
+
+    const canPersistSnapshotImmediately =
+      assignment.outlet_item_id &&
+      Number(assignment.schedule_id) === Number(form.schedule_id);
+    if (canPersistSnapshotImmediately) {
+      const response = await fetch(
+        `/api/outlet-items/${assignment.outlet_item_id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedAssignment),
+        }
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error || "Não foi possível guardar este item.");
+      }
+      Object.assign(updatedAssignment, result);
+    }
+
+    setReservationItems((currentItems) =>
+      currentItems.map((assignment, index) =>
+        index === assignmentIndex
+          ? updatedAssignment
+          : assignment
+      )
+    );
+    setEditingReservationItem(null);
   }
 
   function handleSettingChange(e) {
@@ -348,11 +428,6 @@ export default function OutletsPage() {
         ) {
           nextForm.access_points = true;
         }
-      }
-
-      if (name === "reservation" && !checked) {
-        nextForm.reservation_item_id = "";
-        nextForm.reservation_duration = "";
       }
 
       return nextForm;
@@ -486,18 +561,23 @@ export default function OutletsPage() {
       return;
     }
 
-    if (form.reservation && !form.reservation_item_id) {
-      alert("Selecione o item de reserva de mesa.");
+    if (form.reservation && reservationItems.length === 0) {
+      alert("Adicione pelo menos um item de reserva de mesa.");
       setActiveTab("tableReservation");
       return;
     }
 
-    if (
-      form.reservation &&
-      (!Number.isSafeInteger(Number(form.reservation_duration)) ||
-        Number(form.reservation_duration) <= 0)
-    ) {
-      alert("Indique uma duração válida em minutos para a reserva.");
+    if (form.reservation && reservationItems.some((assignment) => {
+      return (
+        !assignment.item_duration ||
+        !Number.isSafeInteger(Number(assignment.item_duration)) ||
+        Number(assignment.item_duration) <= 0 ||
+        !reservationShifts.some(
+          (shift) => shift.shift_index === assignment.shift_index
+        )
+      );
+    })) {
+      alert("Edite cada item para definir a duração e um turno válido.");
       setActiveTab("tableReservation");
       return;
     }
@@ -530,12 +610,35 @@ export default function OutletsPage() {
         ...form,
         area_id: Number(form.area_id),
         schedule_id: form.schedule_id ? Number(form.schedule_id) : null,
-        reservation_item_id: form.reservation
-          ? Number(form.reservation_item_id)
-          : null,
-        reservation_duration: form.reservation
-          ? Number(form.reservation_duration)
-          : null,
+        reservation_items: form.reservation
+          ? reservationItems.map(
+              ({
+                item_id,
+                shift_index,
+                item_name1,
+                item_price,
+                item_vat,
+                item_duration,
+                reservation,
+                takeaway_order,
+                cart,
+                order,
+                checkin,
+              }) => ({
+                item_id,
+                shift_index,
+                item_name1,
+                item_price,
+                item_vat,
+                item_duration,
+                reservation,
+                takeaway_order,
+                cart,
+                order,
+                checkin,
+              })
+            )
+          : [],
         schedule_visible_part: Number(form.schedule_visible_part),
         reservation: Number(form.reservation),
         order: Number(form.order),
@@ -662,6 +765,12 @@ export default function OutletsPage() {
         .toLowerCase()
         .includes(search.toLowerCase());
     })
+  );
+  const selectedSchedule = schedules.find(
+    (schedule) => Number(schedule.schedule_id) === Number(form.schedule_id)
+  );
+  const reservationShifts = getReservationShifts(
+    selectedSchedule?.schedule_json
   );
   const selectedAccessPointIds = new Set(
     accessRooms.flatMap((room) => room.points.map((point) => point.id))
@@ -1128,75 +1237,119 @@ export default function OutletsPage() {
                 <h3 className="text-sm text-gray-600 font-semibold">Configurações de reserva de mesa</h3>
                 <div className="flex flex-col gap-1">
                   <label
-                    htmlFor="reservation_item_id"
+                    htmlFor="reservation_item_to_add"
                     className="text-xs text-gray-500 font-bold"
                   >
-                    Item de reserva de mesa
+                    Adicionar item de reserva de mesa
                   </label>
-                  <select
-                    id="reservation_item_id"
-                    name="reservation_item_id"
-                    value={form.reservation_item_id}
-                    onChange={handleChange}
-                    disabled={!form.reservation}
-                    required={Boolean(form.reservation)}
-                    className="h-10 border rounded-lg px-2"
-                  >
-                    <option value="">Selecionar item</option>
-                    {tableReservationItems.map((item) => (
-                      <option key={item.item_id} value={item.item_id}>
-                        {item.item_name1 || `Item ${item.item_id}`}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      id="reservation_item_to_add"
+                      value={reservationItemToAddId}
+                      onChange={(event) =>
+                        setReservationItemToAddId(event.target.value)
+                      }
+                      disabled={!form.reservation || reservationShifts.length === 0}
+                      className="h-10 min-w-0 flex-1 rounded-lg border px-2 disabled:bg-gray-100"
+                    >
+                      <option value="">Selecionar item</option>
+                      {tableReservationItems
+                        .map((item) => (
+                          <option key={item.item_id} value={item.item_id}>
+                            {item.item_name1 || `Item ${item.item_id}`}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={addReservationItem}
+                      disabled={
+                        !form.reservation ||
+                        !reservationItemToAddId ||
+                        reservationShifts.length === 0
+                      }
+                      className="h-10 shrink-0 rounded-lg bg-red-500 px-4 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
                   {tableReservationItems.length === 0 && (
                     <p className="text-xs text-amber-700">
                       Não existem itens do tipo “Reserva de mesa”.
                     </p>
                   )}
-                  {form.reservation_item_id && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-1">
-                        <label
-                          htmlFor="reservation_duration"
-                          className="text-xs text-gray-500 font-bold"
-                        >
-                          Duração (minutos)
-                        </label>
-                        <input
-                          id="reservation_duration"
-                          name="reservation_duration"
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={form.reservation_duration}
-                          onChange={handleChange}
-                          required={Boolean(form.reservation)}
-                          disabled={!form.reservation}
-                          className="h-10 border rounded-lg px-2 disabled:bg-gray-100"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label
-                          htmlFor="reservation_slot_duration"
-                          className="text-xs text-gray-500 font-bold"
-                        >
-                          Duração da slot (minutos)
-                        </label>
-                        <input
-                          id="reservation_slot_duration"
-                          type="number"
-                          value={
-                            schedules.find(
-                              (schedule) =>
-                                Number(schedule.schedule_id) ===
-                                Number(form.schedule_id)
-                            )?.slotDuration ?? ""
-                          }
-                          readOnly
-                          className="h-10 border rounded-lg px-2 bg-gray-100 text-gray-500"
-                        />
-                      </div>
+                  {reservationShifts.length === 0 && (
+                    <p className="text-xs text-amber-700">
+                      Selecione um horário com turnos definidos para adicionar itens.
+                    </p>
+                  )}
+                  {reservationItems.length > 0 && (
+                    <div className="mt-1 flex flex-col gap-2">
+                      {reservationItems.map((assignment, assignmentIndex) => {
+                        const item = assignment;
+                        const shift = reservationShifts.find(
+                          (candidate) =>
+                            candidate.shift_index === assignment.shift_index
+                        );
+
+                        return (
+                          <div
+                            key={
+                              assignment.outlet_reservation_item_id ??
+                              assignment.client_id ??
+                              `${assignment.item_id}-${assignmentIndex}`
+                            }
+                            className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-800">
+                                {item?.item_name1 || `Item ${assignment.item_id}`}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {shift?.label || "Turno por definir"}
+                                {item?.item_duration
+                                  ? ` · ${item.item_duration} min`
+                                  : " · duração por definir"}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setEditingReservationItem({
+                                    item: {
+                                      ...item,
+                                      item_type: "Reserva de mesa",
+                                    },
+                                    assignmentIndex,
+                                  })
+                                }
+                                disabled={!form.reservation}
+                                aria-label={`Editar ${item?.item_name1 || "item"}`}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <span aria-hidden="true">✏️</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReservationItems((currentItems) =>
+                                    currentItems.filter(
+                                      (_, index) =>
+                                        index !== assignmentIndex
+                                    )
+                                  )
+                                }
+                                disabled={!form.reservation}
+                                aria-label={`Remover ${item?.item_name1 || "item"}`}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <span aria-hidden="true">×</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1528,6 +1681,25 @@ export default function OutletsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingReservationItem && (
+        <ItemModal
+          item={editingReservationItem.item}
+          shiftOptions={reservationShifts}
+          initialShiftIndex={
+            reservationItems[editingReservationItem.assignmentIndex]
+              ?.shift_index ?? reservationShifts[0]?.shift_index
+          }
+          onClose={() => setEditingReservationItem(null)}
+          onSaved={(item, shiftIndex) =>
+            handleReservationItemSaved(
+              item,
+              shiftIndex,
+              editingReservationItem.assignmentIndex
+            )
+          }
+        />
       )}
 
     </div>
