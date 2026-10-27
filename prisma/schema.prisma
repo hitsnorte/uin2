@@ -428,3 +428,15 @@ model OutletItems {
   @@index([item_id], map: "idx_outlet_items_item_id")
   @@index([outlet_id], map: "idx_outlet_items_outlet_id")
 }
+
+model notifications {
+  notification_id Int       @id @default(autoincrement())
+  user_id         Int
+  title           String    @db.VarChar(255)
+  message         String    @db.Text
+  is_read         Boolean?  @default(false)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+
+  @@index([user_id, created_at(sort: Desc)], map: "idx_user_created")
+  @@index([user_id, is_read], map: "idx_user_unread")
+}
