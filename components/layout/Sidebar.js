@@ -11,6 +11,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { name: "Dashboard", path: "/backend" },
     { name: "Linguagens", path: "/backend/languages" },
     { name: "Areas", path: "/backend/areas" },
+    { name: "Taxas de IVA", path: "/backend/ivaRates" },
     { name: "Outlets", path: "/backend/outlets" },
     { name: "Menus", path: "/backend/menus" },
     { name: "Submenus", path: "/backend/submenus" },
