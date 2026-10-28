@@ -119,6 +119,10 @@ export default function Homepage() {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const t = useTranslations();
 
+  function openTableReservation(outletId) {
+    router.push(`/table-reservation?outlet_id=${outletId}`);
+  }
+
   useEffect(() => {
     const savedLang = localStorage.getItem("lang");
 
@@ -1450,6 +1454,18 @@ export default function Homepage() {
         <TbClockHour3 size={20} /> {outletScheduleLabels[item.outlet_id]}
       </span>
     </div>
+  )}
+  {selectedArea !== null && isActive(item.reservation) && (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        openTableReservation(item.outlet_id);
+      }}
+      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-red-700"
+    >
+      Reservar mesa
+    </button>
   )}
 </div>
                   </div>

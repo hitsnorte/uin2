@@ -3,6 +3,7 @@ import {
   buildOutletItemSnapshot,
   validateOutletReservationItems,
 } from "@/lib/outletReservationItems";
+import { syncOutletAvailability } from "@/lib/availability";
 
 function toBooleanFlag(value) {
   return value === true || value === 1 || value === "1";
@@ -194,9 +195,17 @@ export async function PUT(req, context) {
       await transaction.outletReservationItems.deleteMany({
         where: { outlet_id: id },
       });
-      await transaction.outletItems.deleteMany({
+      const existingSnapshots = await transaction.outletItems.findMany({
         where: { outlet_id: id, is_reservation_item: true },
+        select: {
+          outlet_item_id: true,
+          item_id: true,
+          shift_index: true,
+          _count: { select: { Reservations: true } },
+        },
+        orderBy: { outlet_item_id: "asc" },
       });
+      const usedSnapshotIds = new Set();
       let firstOutletItem = null;
       if (reservationItems.items.length) {
         await transaction.outletReservationItems.createMany({
@@ -207,18 +216,57 @@ export async function PUT(req, context) {
           })),
         });
         for (const item of reservationItems.items) {
-          const outletItem = await transaction.outletItems.create({
-            data: buildOutletItemSnapshot(item, id, selectedScheduleId),
-          });
+          const matchingSnapshot = existingSnapshots.find(
+            (snapshot) =>
+              !usedSnapshotIds.has(snapshot.outlet_item_id) &&
+              snapshot.item_id === item.item_id &&
+              snapshot.shift_index === item.shift_index
+          );
+          const reusableSnapshot =
+            matchingSnapshot ||
+            existingSnapshots.find(
+              (snapshot) =>
+                !usedSnapshotIds.has(snapshot.outlet_item_id) &&
+                snapshot._count.Reservations === 0
+            );
+          const snapshotData = buildOutletItemSnapshot(
+            item,
+            id,
+            selectedScheduleId
+          );
+          const outletItem = reusableSnapshot
+            ? await transaction.outletItems.update({
+                where: { outlet_item_id: reusableSnapshot.outlet_item_id },
+                data: { ...snapshotData, updated_at: new Date() },
+              })
+            : await transaction.outletItems.create({ data: snapshotData });
+          if (reusableSnapshot) {
+            usedSnapshotIds.add(reusableSnapshot.outlet_item_id);
+          }
           firstOutletItem ??= outletItem;
         }
       }
+      const unusedSnapshotIds = existingSnapshots
+        .filter(
+          (snapshot) =>
+            !usedSnapshotIds.has(snapshot.outlet_item_id) &&
+            snapshot._count.Reservations === 0
+        )
+        .map((snapshot) => snapshot.outlet_item_id);
+      if (unusedSnapshotIds.length) {
+        await transaction.outletItems.deleteMany({
+          where: { outlet_item_id: { in: unusedSnapshotIds } },
+        });
+      }
+
       if (firstOutletItem) {
         await transaction.outlets.update({
           where: { outlet_id: id },
           data: { reservation_item_id: firstOutletItem.outlet_item_id },
         });
       }
+
+      await syncOutletAvailability(transaction, id);
 
       return transaction.outlets.findUnique({
         where: { outlet_id: id },

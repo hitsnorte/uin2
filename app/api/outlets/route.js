@@ -3,6 +3,7 @@ import {
   buildOutletItemSnapshot,
   validateOutletReservationItems,
 } from "@/lib/outletReservationItems";
+import { syncOutletAvailability } from "@/lib/availability";
 
 function toBooleanFlag(value) {
   return value === true || value === 1 || value === "1";
@@ -200,6 +201,8 @@ export async function POST(req) {
           data: { reservation_item_id: firstOutletItem.outlet_item_id },
         });
       }
+
+      await syncOutletAvailability(transaction, outlet.outlet_id);
 
       return transaction.outlets.findUnique({
         where: { outlet_id: outlet.outlet_id },

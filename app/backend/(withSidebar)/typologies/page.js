@@ -16,7 +16,8 @@ export default function TypologiesPage() {
   const [outlets, setOutlets] = useState([]);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", outlet_id: "" });
+  const [form, setForm] = useState({ name: "", outlet_id: "", seats: "" });
+  const [editingId, setEditingId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -62,7 +63,19 @@ export default function TypologiesPage() {
   }, [search, typologies]);
 
   function openCreate() {
-    setForm({ name: "", outlet_id: "" });
+    setEditingId(null);
+    setForm({ name: "", outlet_id: "", seats: "" });
+    setFormError("");
+    setShowModal(true);
+  }
+
+  function openEdit(typology) {
+    setEditingId(typology.typology_id);
+    setForm({
+      name: typology.name,
+      outlet_id: String(typology.outlet_id),
+      seats: typology.seats == null ? "" : String(typology.seats),
+    });
     setFormError("");
     setShowModal(true);
   }
@@ -75,27 +88,38 @@ export default function TypologiesPage() {
     setFormError("");
 
     try {
-      const response = await fetch("/api/typologies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          outlet_id: form.outlet_id,
-        }),
-      });
+      const response = await fetch(
+        editingId ? `/api/typologies/${editingId}` : "/api/typologies",
+        {
+          method: editingId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            outlet_id: form.outlet_id,
+            seats: form.seats,
+          }),
+        }
+      );
       const result = await readResponse(
         response,
-        "Não foi possível criar a tipologia."
+        editingId
+          ? "Não foi possível guardar a tipologia."
+          : "Não foi possível criar a tipologia."
       );
 
       setTypologies((current) =>
-        [...current, result].sort(
+        (editingId
+          ? current.map((typology) =>
+              typology.typology_id === result.typology_id ? result : typology
+            )
+          : [...current, result]
+        ).sort(
           (a, b) =>
             a.outlet_id - b.outlet_id || a.name.localeCompare(b.name)
         )
       );
       setShowModal(false);
-      setForm({ name: "", outlet_id: "" });
+      setForm({ name: "", outlet_id: "", seats: "" });
     } catch (saveError) {
       console.error(saveError);
       setFormError(saveError.message || "Erro ao criar a tipologia.");
@@ -162,13 +186,15 @@ export default function TypologiesPage() {
               <tr>
                 <th className="p-4">ID</th>
                 <th className="p-4">Tipologia</th>
+                <th className="p-4">Lugares</th>
                 <th className="p-4">Outlet</th>
+                <th className="p-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="p-4 text-center text-gray-500" colSpan={3}>
+                  <td className="p-4 text-center text-gray-500" colSpan={5}>
                     A carregar tipologias...
                   </td>
                 </tr>
@@ -177,14 +203,24 @@ export default function TypologiesPage() {
                   <tr key={typology.typology_id} className="border-t">
                     <td className="p-4">{typology.typology_id}</td>
                     <td className="p-4">{typology.name}</td>
+                    <td className="p-4">{typology.seats ?? "Por definir"}</td>
                     <td className="p-4">
                       {typology.outlet_name || `Outlet ${typology.outlet_id}`}
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(typology)}
+                        className="rounded-lg bg-gray-200 px-3 py-1 hover:bg-gray-300"
+                      >
+                        Editar
+                      </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="p-4 text-center text-gray-500" colSpan={3}>
+                  <td className="p-4 text-center text-gray-500" colSpan={5}>
                     {search
                       ? "Nenhuma tipologia corresponde à pesquisa."
                       : "Ainda não existem tipologias."}
@@ -202,7 +238,9 @@ export default function TypologiesPage() {
             onSubmit={handleSubmit}
             className="flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-white p-6"
           >
-            <h2 className="text-lg font-semibold">Criar Tipologia</h2>
+            <h2 className="text-lg font-semibold">
+              {editingId ? "Editar Tipologia" : "Criar Tipologia"}
+            </h2>
 
             {formError && (
               <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
@@ -227,12 +265,31 @@ export default function TypologiesPage() {
             </div>
 
             <div className="flex flex-col gap-1">
+              <label htmlFor="typology-seats" className="text-xs font-bold text-gray-500">
+                Número de lugares
+              </label>
+              <input
+                id="typology-seats"
+                type="number"
+                min="1"
+                step="1"
+                value={form.seats}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, seats: event.target.value }))
+                }
+                required
+                className="h-10 rounded-lg border px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
               <label htmlFor="typology-outlet" className="text-xs font-bold text-gray-500">
                 Outlet
               </label>
               <select
                 id="typology-outlet"
                 value={form.outlet_id}
+                disabled={Boolean(editingId)}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,

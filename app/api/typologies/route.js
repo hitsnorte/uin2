@@ -5,6 +5,7 @@ function serializeTypology(typology) {
     typology_id: typology.typology_id.toString(),
     outlet_id: typology.outlet_id,
     name: typology.name,
+    seats: typology.seats,
     outlet_name: typology.Outlets.outlet_name1,
   };
 }
@@ -42,9 +43,13 @@ export async function POST(req) {
   } catch {
     return Response.json({ error: "Pedido inválido." }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json({ error: "Pedido inválido." }, { status: 400 });
+  }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const outletId = Number(body.outlet_id);
+  const seats = Number(body.seats);
 
   if (!name || name.length > 100) {
     return Response.json(
@@ -55,6 +60,12 @@ export async function POST(req) {
 
   if (!Number.isSafeInteger(outletId) || outletId <= 0) {
     return Response.json({ error: "Outlet inválido." }, { status: 400 });
+  }
+  if (!Number.isSafeInteger(seats) || seats <= 0) {
+    return Response.json(
+      { error: "Indique um número de lugares válido para a tipologia." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -71,6 +82,7 @@ export async function POST(req) {
       data: {
         name,
         outlet_id: outletId,
+        seats,
       },
       include: {
         Outlets: {

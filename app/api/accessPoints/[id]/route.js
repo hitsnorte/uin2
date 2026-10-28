@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import { syncOutletAvailability } from "@/lib/availability";
 
 function parseJson(value) {
   if (value == null || value === "") return null;
@@ -25,16 +24,31 @@ export async function PUT(req, context) {
       return Response.json({ error: "Tipologia não encontrada." }, { status: 404 });
     }
 
-    const updated = await prisma.accessPoints.update({
-      where: { access_point_id: Number(id) },
-      data: {
-        access_point_name: body.access_point_name || null,
-        products: parseJson(body.products),
-        product_cat: parseJson(body.product_cat),
-        activities: parseJson(body.activities),
-        active: body.active !== false,
-        typology_id: typologyId,
-      },
+    const updated = await prisma.$transaction(async (transaction) => {
+      const current = await transaction.accessPoints.findUnique({
+        where: { access_point_id: Number(id) },
+        select: { outlet_id: true },
+      });
+      const point = await transaction.accessPoints.update({
+        where: { access_point_id: Number(id) },
+        data: {
+          access_point_name: body.access_point_name || null,
+          products: parseJson(body.products),
+          product_cat: parseJson(body.product_cat),
+          activities: parseJson(body.activities),
+          active: body.active !== false,
+          typology_id: typologyId,
+        },
+      });
+
+      const affectedOutletIds = new Set(
+        [current?.outlet_id, point.outlet_id].filter(Number.isSafeInteger)
+      );
+      for (const outletId of affectedOutletIds) {
+        await syncOutletAvailability(transaction, outletId);
+      }
+
+      return point;
     });
     return Response.json(updated);
   } catch (error) {
@@ -48,8 +62,17 @@ export async function PUT(req, context) {
 
 export async function DELETE(req, context) {
   const { id } = await context.params;
-  await prisma.accessPoints.delete({
-    where: { access_point_id: Number(id) },
+  await prisma.$transaction(async (transaction) => {
+    const point = await transaction.accessPoints.findUnique({
+      where: { access_point_id: Number(id) },
+      select: { outlet_id: true },
+    });
+    await transaction.accessPoints.delete({
+      where: { access_point_id: Number(id) },
+    });
+    if (Number.isSafeInteger(point?.outlet_id)) {
+      await syncOutletAvailability(transaction, point.outlet_id);
+    }
   });
   return Response.json({ ok: true });
 }

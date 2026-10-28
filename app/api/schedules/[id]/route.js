@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import { syncOutletAvailability } from "@/lib/availability";
 
 function isScheduleJson(value) {
   return (
@@ -35,9 +34,22 @@ export async function PUT(request, context) {
     return Response.json({ error: "Invalid schedule_json" }, { status: 400 });
   }
 
-  const updated = await prisma.schedules.update({
-    where: { schedule_id: Number(id) },
-    data: { schedule_json: body.schedule_json },
+  const scheduleId = Number(id);
+  const updated = await prisma.$transaction(async (transaction) => {
+    const savedSchedule = await transaction.schedules.update({
+      where: { schedule_id: scheduleId },
+      data: { schedule_json: body.schedule_json },
+    });
+    const outlets = await transaction.outlets.findMany({
+      where: { schedule_id: scheduleId },
+      select: { outlet_id: true },
+    });
+
+    for (const outlet of outlets) {
+      await syncOutletAvailability(transaction, outlet.outlet_id);
+    }
+
+    return savedSchedule;
   });
 
   return Response.json(updated);

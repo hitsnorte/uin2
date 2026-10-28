@@ -260,6 +260,7 @@ model Outlets {
   Menus                  Menus[]
   reservationItems       OutletReservationItems[]
   Areas                  Areas?                   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
+  Reservations           Reservations[]
   typologies             typologies[]
 
   @@index([area_id], map: "area_id")
@@ -387,43 +388,44 @@ model typologies {
 }
 
 model OutletItems {
-  outlet_item_id      Int       @id @default(autoincrement())
+  outlet_item_id      Int            @id @default(autoincrement())
   item_id             Int
   outlet_id           Int
-  item_name1          String?   @db.VarChar(150)
-  item_name2          String?   @db.VarChar(150)
-  item_name3          String?   @db.VarChar(150)
-  item_name4          String?   @db.VarChar(150)
-  item_name5          String?   @db.VarChar(150)
-  item_description1   String?   @db.VarChar(150)
-  item_description2   String?   @db.VarChar(150)
-  item_description3   String?   @db.VarChar(150)
-  item_description4   String?   @db.VarChar(150)
-  item_description5   String?   @db.VarChar(150)
-  item_image_url      String?   @db.VarChar(150)
-  item_type           String?   @db.VarChar(45)
-  item_price          Decimal?  @db.Decimal(10, 2)
-  reservation         String?   @db.VarChar(1)
-  checkin             String?   @db.VarChar(1)
-  room                String?   @db.VarChar(1)
-  instantOrder        String?   @db.VarChar(1)
-  sendStaychat        String?   @db.VarChar(1)
-  staychatWebhook     String?   @db.VarChar(255)
-  visiblePrice        String?   @db.VarChar(1)
-  allowReservations   String?   @db.VarChar(1)
-  scheduleID          String?   @db.VarChar(1)
+  item_name1          String?        @db.VarChar(150)
+  item_name2          String?        @db.VarChar(150)
+  item_name3          String?        @db.VarChar(150)
+  item_name4          String?        @db.VarChar(150)
+  item_name5          String?        @db.VarChar(150)
+  item_description1   String?        @db.VarChar(150)
+  item_description2   String?        @db.VarChar(150)
+  item_description3   String?        @db.VarChar(150)
+  item_description4   String?        @db.VarChar(150)
+  item_description5   String?        @db.VarChar(150)
+  item_image_url      String?        @db.VarChar(150)
+  item_type           String?        @db.VarChar(45)
+  item_price          Decimal?       @db.Decimal(10, 2)
+  reservation         String?        @db.VarChar(1)
+  checkin             String?        @db.VarChar(1)
+  room                String?        @db.VarChar(1)
+  instantOrder        String?        @db.VarChar(1)
+  sendStaychat        String?        @db.VarChar(1)
+  staychatWebhook     String?        @db.VarChar(255)
+  visiblePrice        String?        @db.VarChar(1)
+  allowReservations   String?        @db.VarChar(1)
+  scheduleID          String?        @db.VarChar(1)
   preparation         Json?
-  created_at          DateTime? @default(now()) @db.Timestamp(0)
-  updated_at          DateTime? @default(now()) @db.Timestamp(0)
-  item_vat            String?   @db.VarChar(45)
+  created_at          DateTime?      @default(now()) @db.Timestamp(0)
+  updated_at          DateTime?      @default(now()) @db.Timestamp(0)
+  item_vat            String?        @db.VarChar(45)
   item_duration       Int?
   schedule_id         Int?
   shift_index         Int?
-  is_reservation_item Boolean   @default(false)
-  cart                Boolean   @default(false)
-  takeaway_order      Boolean   @default(false)
-  order               Boolean   @default(false)
-  Items               Items     @relation(fields: [item_id], references: [item_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_outlet_items_item")
+  is_reservation_item Boolean        @default(false)
+  cart                Boolean        @default(false)
+  takeaway_order      Boolean        @default(false)
+  order               Boolean        @default(false)
+  Items               Items          @relation(fields: [item_id], references: [item_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_outlet_items_item")
+  Reservations        Reservations[]
 
   @@index([item_id], map: "idx_outlet_items_item_id")
   @@index([outlet_id], map: "idx_outlet_items_outlet_id")
@@ -457,4 +459,39 @@ model Orders {
   OrderStatus   OrderStatus? @relation(fields: [order_status], references: [order_status_id], onDelete: Restrict, map: "fk_orders_order_status")
 
   @@index([order_status], map: "idx_order_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model Reservations {
+  reservation_id   Int         @id @default(autoincrement())
+  outlet_id        Int
+  outlet_item_id   Int
+  pax_size         Int
+  start_at         DateTime    @db.DateTime(0)
+  end_at           DateTime    @db.DateTime(0)
+  duration_minutes Int
+  status           String      @default("confirmed") @db.VarChar(20)
+  source           String      @default("online") @db.VarChar(20)
+  customer_name    String?     @db.VarChar(150)
+  customer_surname String?     @db.VarChar(150)
+  customer_email   String?     @db.VarChar(255)
+  customer_phone   String?     @db.VarChar(30)
+  customer_country String      @db.VarChar(30)
+  notes            String?     @db.Text
+  created_at       DateTime    @default(now()) @db.DateTime(0)
+  updated_at       DateTime    @default(now()) @db.DateTime(0)
+  OutletItems      OutletItems @relation(fields: [outlet_item_id], references: [outlet_item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlet_items")
+  Outlets          Outlets     @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlets")
+
+  @@index([outlet_item_id], map: "idx_reservations_outlet_item")
+  @@index([outlet_id, start_at], map: "idx_reservations_outlet_start")
+  @@index([outlet_id, status, start_at, end_at], map: "idx_reservations_outlet_status_interval")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model IvaRates {
+  iva_id       Int     @id @default(autoincrement())
+  name         String  @db.VarChar(100)
+  rate         Decimal @db.Decimal(5, 2)
+  country_code String? @default("PT") @db.VarChar(2)
 }
