@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TbClockHour3 } from "react-icons/tb";
-import { FiMenu } from "react-icons/fi";
+import { FiArrowLeft, FiMenu } from "react-icons/fi";
 import "./loading.css";
 import { IoIosLogOut } from "react-icons/io";
 import { CiUser } from "react-icons/ci";
@@ -1183,32 +1183,35 @@ export default function Homepage() {
         style={{ background: theme.background, color: theme.text }}
       >
 
-        {selectedArea !== null && (
-          <button
-            onClick={() => {
-              if (selectedMenu !== null) {
-                if (selectedSubmenu !== null) {
-                  setSelectedSubmenu(null);
-                  return;
-                }
-                setSelectedMenu(null);
-              } else if (selectedOutlet !== null) {
-                setSelectedOutlet(null);
-              } else {
-                setSelectedArea(null);
-                setSelectedOutlet(null);
-                setSelectedMenu(null);
-              }
-            }}
-            className="absolute top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg"
-            style={{ background: theme.primary, color: theme.text }}
-          >
-            ← {t.geral.buttons.back}
-          </button>
-        )}
-
         <div className="w-full min-h-full p-4 pb-28 md:pb-8">
-          <div className="fixed top-6 left-0 right-0 z-50 flex items-center justify-end gap-2 px-4 sm:gap-4 sm:left-auto sm:right-6 sm:translate-x-0 sm:px-0">
+          <div className="fixed inset-x-0 top-6 z-50 flex flex-wrap items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
+            {selectedArea !== null && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedMenu !== null) {
+                    if (selectedSubmenu !== null) {
+                      setSelectedSubmenu(null);
+                      return;
+                    }
+                    setSelectedMenu(null);
+                  } else if (selectedOutlet !== null) {
+                    setSelectedOutlet(null);
+                  } else {
+                    setSelectedArea(null);
+                    setSelectedOutlet(null);
+                    setSelectedMenu(null);
+                  }
+                }}
+                aria-label={t.geral.buttons.back}
+                title={t.geral.buttons.back}
+                className="flex h-12 w-16 shrink-0 items-center justify-center rounded-full shadow-lg sm:w-20"
+                style={{ background: theme.primary, color: theme.text }}
+              >
+                <FiArrowLeft size={24} aria-hidden="true" />
+              </button>
+            )}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-4">
             {checkingSession ? (
               <div
                 className="px-5 py-3 rounded-full font-medium backdrop-blur-xl"
@@ -1222,18 +1225,19 @@ export default function Homepage() {
               <div className="flex items-center justify-end gap-2 sm:gap-3">
 
                 <div
-                  className="px-3 py-2 sm:px-5 sm:py-3 rounded-full font-medium backdrop-blur-xl border max-w-[42vw] sm:max-w-none"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border backdrop-blur-xl sm:h-12 sm:w-12 lg:h-auto lg:w-auto lg:gap-2 lg:px-4 lg:py-3"
                   style={{
                     background: "rgba(255,255,255,0.25)",
                     color: theme.text,
-                    borderColor: "rgba(255,255,255.0.3)",
+                    borderColor: "rgba(255,255,255,0.3)",
                   }}
+                  role="img"
+                  aria-label="Utilizador autenticado"
+                  title="Utilizador autenticado"
                 >
-                  <span className="flex items-center justify-center gap-1.5 sm:gap-2 min-w-0">
-                    <CiUser size={18} className="shrink-0 sm:size-5" />
-                    <span className="truncate text-xs sm:text-sm">
-                      {(currentUser?.email || "Utilizador autenticado").split("@")[0]}
-                    </span>
+                  <CiUser size={22} aria-hidden="true" />
+                  <span className="hidden max-w-48 truncate text-sm lg:block">
+                    {(currentUser?.email || "Utilizador autenticado").split("@")[0]}
                   </span>
                 </div>
 
@@ -1264,9 +1268,13 @@ export default function Homepage() {
                   {notificationsOpen && (
                     <div
                       id="user-notifications"
-                      className="absolute right-0 top-full z-[60] mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-gray-200 bg-white text-gray-900 shadow-xl"
+                      className="absolute right-0 top-full z-[60] mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border text-gray-900 shadow-xl backdrop-blur-xl"
+                      style={{
+                        background: "rgba(255,255,255,0.82)",
+                        borderColor: "rgba(255,255,255,0.5)",
+                      }}
                     >
-                      <div className="border-b border-gray-100 px-4 py-3">
+                      <div className="border-b border-gray-200/60 px-4 py-3">
                         <h2 className="text-sm font-semibold">Notificações</h2>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
@@ -1287,8 +1295,8 @@ export default function Homepage() {
                             {notifications.map((notification) => (
                               <li
                                 key={notification.notification_id}
-                                className={`border-b border-gray-100 px-4 py-3 last:border-b-0 ${
-                                  notification.is_read ? "" : "bg-blue-50/60"
+                                className={`border-b border-gray-200/60 px-4 py-3 last:border-b-0 ${
+                                  notification.is_read ? "" : "bg-blue-50/40"
                                 }`}
                               >
                                 <div className="flex items-start gap-2">
@@ -1371,6 +1379,7 @@ export default function Homepage() {
                 </button>
               </>
             )}
+            </div>
           </div>
           <div className="flex flex-col gap-4">
             {data.length === 0 && (
@@ -1599,10 +1608,12 @@ export default function Homepage() {
                   setMenuOpen(true);
                   setOpenArea(selectedOutletData?.area_id ?? null);
                 }}
-                className="mb-6 px-4 py-2 rounded-lg shadow-lg"
+                className="mb-6 flex h-10 w-10 items-center justify-center rounded-full shadow-lg sm:h-12 sm:w-12"
                 style={{ background: theme.primary, color: "#fff" }}
+                aria-label={t.geral.buttons.back}
+                title={t.geral.buttons.back}
               >
-                ← {t.geral.buttons.back}
+                <FiArrowLeft size={20} aria-hidden="true" />
               </button>
 
               {levelItems.length === 0 ? (

@@ -83,15 +83,20 @@ export default function FrontendHeader({
       return (
         <div className="flex items-center gap-2 sm:gap-3 justify-between">
           <div
-            className="flex w-1/2 min-w-0 items-center gap-2 rounded-full border px-3 sm:px-4 py-3 font-medium text-xs sm:text-sm"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border lg:h-auto lg:w-auto lg:gap-2 lg:px-4 lg:py-3"
             style={{
               background: "rgba(255,255,255,0.25)",
               borderColor: "rgba(255,255,255,0.3)",
               color: personalize?.foreground_color || "#111",
             }}
+            role="img"
+            aria-label="Utilizador autenticado"
+            title="Utilizador autenticado"
           >
-            <CiUser size={16} />
-            <span className="truncate">{currentUser?.email || "Utilizador autenticado"}</span>
+            <CiUser size={22} aria-hidden="true" />
+            <span className="hidden max-w-48 truncate text-sm lg:block">
+              {currentUser?.email || "Utilizador autenticado"}
+            </span>
           </div>
 
           <div className="w-[110px] sm:w-[130px] shrink-0">
