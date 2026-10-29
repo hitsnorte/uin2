@@ -267,9 +267,9 @@ export default function TableReservationPage() {
               type="button"
               onClick={confirmReservation}
               disabled={!selectedSlot || isBooking || loading}
-              className="mt-6 rounded-lg bg-black px-5 py-3 font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+              className="mt-6 rounded-lg bg-black px-5 py-3 font-semibold w-full text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
             >
-              {isBooking ? "A confirmar..." : "Confirmar Reserva"}
+              Confirmar Reserva
             </button>
           </div>
         </section>
