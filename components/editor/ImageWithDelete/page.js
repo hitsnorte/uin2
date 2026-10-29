@@ -90,6 +90,7 @@ const ImageWithDelete = ContentImage.extend({
       dom.style.position = "relative";
       dom.style.display = "block";
       dom.style.maxWidth = "100%";
+      dom.className = "editor-image-node";
 
       const img = document.createElement("img");
       img.src = node.attrs.src;
@@ -101,18 +102,9 @@ const ImageWithDelete = ContentImage.extend({
 
       const btn = document.createElement("button");
       btn.innerHTML = "✕";
-
-      btn.style.position = "absolute";
-      btn.style.top = "6px";
-      btn.style.right = "6px";
-      btn.style.background = "rgba(0,0,0,0.6)";
-      btn.style.color = "white";
-      btn.style.border = "none";
-      btn.style.borderRadius = "6px";
-      btn.style.cursor = "pointer";
-      btn.style.fontSize = "12px";
-      btn.style.padding = "2px 6px";
-      btn.style.display = "none";
+      btn.type = "button";
+      btn.setAttribute("aria-label", "Eliminar imagem");
+      btn.className = "editor-image-delete";
 
       btn.onclick = () => {
         const pos = getPos();
@@ -122,25 +114,69 @@ const ImageWithDelete = ContentImage.extend({
         }).run();
       };
 
-      dom.onmouseenter = () => {
-        btn.style.display = "block";
-      };
+      const resizeHandle = document.createElement("button");
+      resizeHandle.type = "button";
+      resizeHandle.className = "editor-image-resize";
+      resizeHandle.setAttribute("aria-label", "Redimensionar imagem");
+      resizeHandle.title = "Arraste para redimensionar";
 
-      dom.onmouseleave = () => {
-        btn.style.display = "none";
-      };
+      let resizeState = null;
+      resizeHandle.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        resizeHandle.setPointerCapture(event.pointerId);
+        resizeState = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startWidth: img.getBoundingClientRect().width,
+          maxWidth: editor.view.dom.clientWidth,
+        };
+      });
+
+      resizeHandle.addEventListener("pointermove", (event) => {
+        if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+
+        const width = Math.min(
+          resizeState.maxWidth,
+          Math.max(50, resizeState.startWidth + event.clientX - resizeState.startX)
+        );
+        dom.style.width = `${width}px`;
+      });
+
+      resizeHandle.addEventListener("pointerup", (event) => {
+        if (!resizeState || event.pointerId !== resizeState.pointerId) return;
+
+        const width = Math.min(
+          resizeState.maxWidth,
+          Math.max(50, resizeState.startWidth + event.clientX - resizeState.startX)
+        );
+        const position = getPos();
+        resizeState = null;
+        if (typeof position !== "number") return;
+
+        const currentNode = editor.state.doc.nodeAt(position);
+        if (!currentNode || currentNode.type.name !== "image") return;
+
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(position, undefined, {
+            ...currentNode.attrs,
+            width: Math.round(width),
+          })
+        );
+      });
 
       function updateNodeView(updatedNode) {
         img.src = updatedNode.attrs.src;
         img.alt = updatedNode.attrs.alt || "";
-        dom.style.width = updatedNode.attrs.width
-          ? `${updatedNode.attrs.width}px`
-          : "100%";
+        const width = updatedNode.attrs.width;
+        dom.style.width = width ? `${width}px` : "100%";
+        img.style.width = "100%";
         node = updatedNode;
       }
 
       dom.appendChild(img);
       dom.appendChild(btn);
+      dom.appendChild(resizeHandle);
       updateNodeView(node);
 
       return {

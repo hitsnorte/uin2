@@ -624,6 +624,45 @@ export default function SubmenusPage() {
                         Number(menu.menu_id) === Number(selectedSubmenu?.menu_id)
                     )?.outlet_id
                   }
+                  previewTitle={
+                    outlets.find(
+                      (outlet) =>
+                        Number(outlet.outlet_id) ===
+                        Number(
+                          menus.find(
+                            (menu) =>
+                              Number(menu.menu_id) ===
+                              Number(selectedSubmenu?.menu_id)
+                          )?.outlet_id
+                        )
+                    )?.outlet_name1 || "Menus"
+                  }
+                  previewItems={[
+                    {
+                      id: selectedSubmenu?.menu_id,
+                      name:
+                        menus.find(
+                          (menu) =>
+                            Number(menu.menu_id) ===
+                            Number(selectedSubmenu?.menu_id)
+                        )?.menu_name1 || "Menu",
+                      active: false,
+                    },
+                    ...submenus
+                      .filter(
+                        (submenu) =>
+                          Number(submenu.menu_id) ===
+                          Number(selectedSubmenu?.menu_id)
+                      )
+                      .map((submenu) => ({
+                        id: submenu.submenu_id,
+                        name: submenu.submenu_name1 || "Submenu",
+                        active:
+                          Number(submenu.submenu_id) ===
+                          Number(selectedSubmenu?.submenu_id),
+                        nested: true,
+                      })),
+                  ]}
                 />
               )}
             </div>

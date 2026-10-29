@@ -324,7 +324,13 @@ function ItemTreeNode({
   );
 }
 
-export default function Editor({ value, onChange, outletId }) {
+export default function Editor({
+  value,
+  onChange,
+  outletId,
+  previewTitle = "Conteúdo",
+  previewItems = [],
+}) {
   const [selectedPos, setSelectedPos] = useState(null);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
   const [bannerModalOpen, setBannerModalOpen] = useState(false);
@@ -1127,7 +1133,7 @@ export default function Editor({ value, onChange, outletId }) {
           aria-modal="true"
           aria-labelledby="content-preview-title"
         >
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="flex h-[96vh] w-[98vw] max-w-[1800px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
               <h2
                 id="content-preview-title"
@@ -1144,20 +1150,61 @@ export default function Editor({ value, onChange, outletId }) {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-gray-100 p-4 sm:p-6">
+            <div className="content-preview-viewport min-h-0 flex-1 overflow-auto">
               <div className="content-preview-page">
-                {bannerUrl && (
-                  <div
-                    className="content-preview-banner"
-                    role="img"
-                    aria-label="Banner"
-                    style={{ backgroundImage: `url("${bannerUrl}")` }}
-                  />
-                )}
-                <div
-                  className="content-preview-body ProseMirror"
-                  dangerouslySetInnerHTML={{ __html: editorHtml }}
-                />
+                <header className="content-preview-toolbar">
+                  <span className="content-preview-back" aria-hidden="true">
+                    ‹
+                  </span>
+                  <span className="content-preview-page-title">
+                    {previewTitle}
+                  </span>
+                  <span className="content-preview-menu" aria-hidden="true">
+                    ☰
+                  </span>
+                </header>
+
+                <div className="content-preview-layout">
+                  <aside className="content-preview-sidebar">
+                    <div className="content-preview-sidebar-heading">
+                      <span className="content-preview-eyebrow">Navegação</span>
+                      <strong>{previewTitle}</strong>
+                    </div>
+                    <nav aria-label="Pré-visualização da navegação">
+                      {previewItems.length ? (
+                        previewItems.map((item, index) => (
+                          <div
+                            key={`${item.id ?? item.name}-${index}`}
+                            className={`content-preview-nav-item${item.active ? " is-active" : ""}${item.nested ? " is-nested" : ""}`}
+                          >
+                            {item.name}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="content-preview-nav-item is-active">
+                          {previewTitle}
+                        </div>
+                      )}
+                    </nav>
+                  </aside>
+
+                  <main className="content-preview-main">
+                    {bannerUrl && (
+                      <div
+                        className="content-preview-banner"
+                        role="img"
+                        aria-label="Banner"
+                        style={{ backgroundImage: `url("${bannerUrl}")` }}
+                      />
+                    )}
+                    <section className="content-preview-container">
+                      <div
+                        className="content-preview-body ProseMirror"
+                        dangerouslySetInnerHTML={{ __html: editorHtml }}
+                      />
+                    </section>
+                  </main>
+                </div>
               </div>
             </div>
           </div>
@@ -1267,7 +1314,7 @@ export default function Editor({ value, onChange, outletId }) {
       </div>
 
       {/* FLOATING TOOLBAR */}
-      {selectedPos !== null && (
+      {selectedImage?.type.name === "image" && (
         <div
           className="absolute z-50 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-lg"
           style={{
@@ -1310,7 +1357,10 @@ export default function Editor({ value, onChange, outletId }) {
           </label>
           <button
             type="button"
-            onClick={() => resizeSelectedImage(null)}
+            onClick={() => {
+              setImageWidthDraft("");
+              resizeSelectedImage(null);
+            }}
             className="rounded bg-gray-100 px-2 py-1 text-sm hover:bg-gray-200"
           >
             Largura automática

@@ -691,6 +691,25 @@ export default function MenusPage() {
                   value={editorContent}
                   onChange={setEditorContent}
                   outletId={selectedMenu?.outlet_id}
+                  previewTitle={
+                    outlets.find(
+                      (outlet) =>
+                        Number(outlet.outlet_id) ===
+                        Number(selectedMenu?.outlet_id)
+                    )?.outlet_name1 || "Menus"
+                  }
+                  previewItems={menus
+                    .filter(
+                      (menu) =>
+                        Number(menu.outlet_id) ===
+                        Number(selectedMenu?.outlet_id)
+                    )
+                    .map((menu) => ({
+                      id: menu.menu_id,
+                      name: menu.menu_name1 || "Menu",
+                      active:
+                        Number(menu.menu_id) === Number(selectedMenu?.menu_id),
+                    }))}
                 />
               )}
             </div>
