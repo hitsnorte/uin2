@@ -1471,7 +1471,8 @@ export default function Homepage() {
         event.stopPropagation();
         openTableReservation(item.outlet_id);
       }}
-      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-red-700"
+      className="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow transition hover:brightness-90"
+      style={{ backgroundColor: theme.primary }}
     >
       Reservar mesa
     </button>
