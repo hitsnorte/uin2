@@ -5,9 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
 import { FiArrowLeft, FiChevronDown, FiMenu } from "react-icons/fi";
 import ProductNode from "../../../../components/editor/ProductNode";
+import {
+  ContentImage,
+  TextAlign,
+  Underline,
+} from "../../../../components/editor/ImageWithDelete/page";
 
 import "./content.css";
 import "../../loading.css";
@@ -97,6 +101,7 @@ export default function OutletPage() {
   const contentId = routeMatch ? Number(routeMatch[2]) : null;
 
   const [content, setContent] = useState(null);
+  const [bannerUrl, setBannerUrl] = useState("");
   const [contentItem, setContentItem] = useState(null);
   const [contentOutletId, setContentOutletId] = useState(null);
   const [contentError, setContentError] = useState("");
@@ -205,6 +210,7 @@ export default function OutletPage() {
         )
       );
       setContent(enrichProductNodes(contentData.content || null, productsById));
+      setBannerUrl(contentData.banner_url || "");
       setContentItem(item);
       setContentOutletId(parentMenu.outlet_id);
       setPersonalize(pers || null);
@@ -299,7 +305,9 @@ export default function OutletPage() {
 
     extensions: [
       StarterKit,
-      Image,
+      ContentImage,
+      TextAlign,
+      Underline,
       ProductNode.configure({
         onProductOrder: openOrderConfirmation,
       }),
@@ -548,16 +556,16 @@ export default function OutletPage() {
           </aside>
 
           <main className="outlet-main-column">
-            <section
-              className="outlet-banner"
-              aria-label="Espaço reservado para a imagem do outlet"
-            >
-              <div className="outlet-banner-copy">
-                <span className="outlet-banner-eyebrow">Bem-vindo</span>
-                <h1>{getName(activeOutlet, "outlet_name") || "O nosso espaço"}</h1>
-              </div>
-              <span className="outlet-banner-placeholder">Imagem do outlet</span>
-            </section>
+            {bannerUrl && (
+              <section className="outlet-banner" aria-label="Banner">
+                <div
+                  className="outlet-banner-image"
+                  role="img"
+                  aria-label={`Banner de ${getName(activeOutlet, "outlet_name") || "outlet"}`}
+                  style={{ backgroundImage: `url("${bannerUrl}")` }}
+                />
+              </section>
+            )}
             <section className="outlet-content-container">
               <div className="outlet-content-body">
                 {contentError ? (

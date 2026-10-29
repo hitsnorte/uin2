@@ -20,6 +20,135 @@
   outline-offset: 2px;
 }
 
+.content-editor .ProseMirror {
+  min-height: 100%;
+  padding: 24px;
+}
+
+.content-editor .ProseMirror img {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+.editor-toolbar-button,
+.editor-toolbar-action,
+.editor-toolbar-preview {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #b8b8b8;
+  border-radius: 7px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.editor-toolbar-button {
+  min-width: 34px;
+  padding: 6px 9px;
+}
+
+.editor-toolbar-action {
+  padding: 6px 10px;
+  font-weight: 600;
+}
+
+.editor-toolbar-preview {
+  padding: 6px 14px;
+}
+
+.editor-toolbar-button:hover,
+.editor-toolbar-action:hover,
+.editor-toolbar-preview:hover {
+  background: #f3f4f6;
+}
+
+.editor-toolbar-button.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.editor-toolbar-upload {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.editor-toolbar-banner {
+  border-color: #fb923c;
+  background: #fff7ed;
+  color: #7c2d12;
+}
+
+.editor-toolbar-products {
+  border-color: #22d3ee;
+  background: #ecfeff;
+  color: #164e63;
+}
+
+.content-preview-page {
+  max-width: 900px;
+  min-height: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #fff;
+  color: #111827;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 10%);
+}
+
+.content-preview-banner {
+  min-height: clamp(110px, 14vw, 170px);
+  background-position: center;
+  background-size: cover;
+}
+
+.content-preview-body.ProseMirror {
+  min-height: 220px;
+  padding: clamp(22px, 4vw, 42px);
+  outline: none;
+  font-size: 18px;
+  line-height: 1.8;
+}
+
+.content-preview-body.ProseMirror img {
+  border-radius: 20px;
+  cursor: default;
+}
+
+.content-preview-body.ProseMirror img:hover {
+  outline: none;
+}
+
+.content-preview-body.ProseMirror h1,
+.content-preview-body.ProseMirror h2,
+.content-preview-body.ProseMirror h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.content-preview-body.ProseMirror p {
+  margin-bottom: 1rem;
+}
+
+.content-preview-body.ProseMirror ul {
+  list-style: disc;
+  padding-left: 2rem;
+}
+
+.content-preview-body.ProseMirror ol {
+  list-style: decimal;
+  padding-left: 2rem;
+}
+
 .ProseMirror [data-product-node] {
   display: flex;
   align-items: center;

@@ -1,14 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import BulletList from "@tiptap/extension-bullet-list";
 import ListItem from "@tiptap/extension-list-item";
 import OrderedList from "@tiptap/extension-ordered-list";
+import {
+  FiAlignJustify,
+  FiAlignCenter,
+  FiAlignLeft,
+  FiAlignRight,
+  FiEye,
+} from "react-icons/fi";
 import ItemModal from "@/components/items/ItemModal";
-import ImageWithDelete from "./ImageWithDelete/page";
+import ImageWithDelete, {
+  TextAlign,
+  Underline,
+} from "./ImageWithDelete/page";
 import ProductNode from "./ProductNode";
 import "./editor.css";
 
@@ -317,6 +327,15 @@ function ItemTreeNode({
 export default function Editor({ value, onChange, outletId }) {
   const [selectedPos, setSelectedPos] = useState(null);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
+  const [bannerModalOpen, setBannerModalOpen] = useState(false);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [imageWidthDraft, setImageWidthDraft] = useState("");
+  const [bannerUrl, setBannerUrl] = useState(
+    value && typeof value === "object" ? value.banner_url || "" : ""
+  );
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState("");
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [products, setProducts] = useState([]);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
@@ -337,6 +356,15 @@ export default function Editor({ value, onChange, outletId }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [productEditError, setProductEditError] = useState("");
   const [isLoadingProductEdit, setIsLoadingProductEdit] = useState(false);
+  const bannerUrlRef = useRef(bannerUrl);
+  const bannerFileInputRef = useRef(null);
+
+  useEffect(() => {
+    const nextBannerUrl =
+      value && typeof value === "object" ? value.banner_url || "" : "";
+    bannerUrlRef.current = nextBannerUrl;
+    setBannerUrl(nextBannerUrl);
+  }, [value]);
 
   useEffect(() => {
     async function fetchItemTreeData() {
@@ -516,6 +544,8 @@ export default function Editor({ value, onChange, outletId }) {
       OrderedList,
       ListItem,
       ImageWithDelete,
+      TextAlign,
+      Underline,
       ProductNode.configure({
         onProductEdit: (productId, sourceItemId) =>
           openProductForEdit(productId, sourceItemId),
@@ -542,9 +572,20 @@ export default function Editor({ value, onChange, outletId }) {
       onChange?.({
         editor: editor.getJSON(),
         selectedProducts: productNodes.map((node) => node.attrs.productId),
+        banner_url: bannerUrlRef.current,
       });
     },
   });
+
+  useEffect(() => {
+    const node =
+      selectedPos === null ? null : editor?.state.doc.nodeAt(selectedPos);
+    setImageWidthDraft(
+      node?.type.name === "image" && node.attrs.width
+        ? String(node.attrs.width)
+        : ""
+    );
+  }, [editor, selectedPos]);
 
   useEffect(() => {
     if (!editor) return;
@@ -597,6 +638,7 @@ export default function Editor({ value, onChange, outletId }) {
         selectedProducts: hydratedProductNodes.map(
           (node) => node.attrs.productId
         ),
+        banner_url: bannerUrlRef.current,
       });
     });
 
@@ -635,6 +677,76 @@ export default function Editor({ value, onChange, outletId }) {
       .run();
 
     setSelectedPos(null);
+  }
+
+  function resizeSelectedImage(width) {
+    if (selectedPos == null) return;
+
+    const node = editor.state.doc.nodeAt(selectedPos);
+    if (!node || node.type.name !== "image") return;
+
+    const transaction = editor.state.tr.setNodeMarkup(selectedPos, undefined, {
+      ...node.attrs,
+      width: width || null,
+    });
+    editor.view.dispatch(transaction);
+  }
+
+  async function uploadBanner() {
+    if (!bannerFile) return;
+
+    setIsUploadingBanner(true);
+    setBannerError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", bannerFile);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Não foi possível carregar o banner.");
+      }
+
+      bannerUrlRef.current = data.url;
+      setBannerUrl(data.url);
+      onChange?.({
+        editor: editor.getJSON(),
+        selectedProducts: editor.state.doc.content.content
+          .filter((node) => node.type.name === "product")
+          .map((node) => node.attrs.productId),
+        banner_url: data.url,
+      });
+      setBannerFile(null);
+      setBannerModalOpen(false);
+    } catch (error) {
+      console.error("Erro ao carregar banner:", error);
+      setBannerError(error.message || "Não foi possível carregar o banner.");
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  }
+
+  function removeBanner() {
+    bannerUrlRef.current = "";
+    setBannerUrl("");
+    setBannerFile(null);
+    setBannerError("");
+    if (bannerFileInputRef.current) {
+      bannerFileInputRef.current.value = "";
+    }
+
+    onChange?.({
+      editor: editor.getJSON(),
+      selectedProducts: editor.state.doc.content.content
+        .filter((node) => node.type.name === "product")
+        .map((node) => node.attrs.productId),
+      banner_url: "",
+    });
   }
 
   async function openProductForEdit(productId, sourceItemId) {
@@ -869,49 +981,84 @@ export default function Editor({ value, onChange, outletId }) {
   const hasNewDraftProducts = draftProductIds.some(
     (id) => !selectedProductIds.map(Number).includes(Number(id))
   );
+  const selectedImage =
+    selectedPos === null ? null : editor.state.doc.nodeAt(selectedPos);
+  const editorHtml = editor.getHTML();
 
   return (
-    <div className="relative border rounded-xl bg-white shadow-sm flex flex-col h-full overflow-hidden">
+    <div className="content-editor relative flex h-full flex-col overflow-hidden bg-white">
       {/* TOOLBAR */}
-      <div className="sticky top-0 z-50 flex flex-wrap gap-2 p-2 border-b bg-gray-50 shadow-sm">
+      <div className="sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-2">
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className="px-3 py-1 border rounded hover:bg-gray-200"
+          aria-label="Negrito"
+          aria-pressed={editor.isActive("bold")}
+          className={`editor-toolbar-button font-bold ${editor.isActive("bold") ? "is-active" : ""}`}
         >
           B
         </button>
 
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className="px-3 py-1 border rounded hover:bg-gray-200"
+          aria-label="Itálico"
+          aria-pressed={editor.isActive("italic")}
+          className={`editor-toolbar-button italic ${editor.isActive("italic") ? "is-active" : ""}`}
         >
           I
         </button>
 
-        {/*<button
-          onClick={() =>
-            editor.chain().focus().toggleHeading({ level: 2 }).run()
-          }
-          className="px-3 py-1 border rounded hover:bg-gray-200"
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleMark("underline").run()}
+          aria-label="Sublinhado"
+          aria-pressed={editor.isActive("underline")}
+          className={`editor-toolbar-button underline ${editor.isActive("underline") ? "is-active" : ""}`}
         >
-          H2
+          U
         </button>
 
         <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className="px-3 py-1 border rounded hover:bg-gray-200"
+          type="button"
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          aria-label="Alinhar à esquerda"
+          title="Alinhar à esquerda"
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "left" }) || editor.isActive("heading", { textAlign: "left" }) ? "is-active" : ""}`}
         >
-          • List
+          <FiAlignLeft aria-hidden="true" />
         </button>
 
         <button
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className="px-3 py-1 border rounded hover:bg-gray-200"
+          type="button"
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          aria-label="Centrar texto"
+          title="Centrar texto"
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "center" }) || editor.isActive("heading", { textAlign: "center" }) ? "is-active" : ""}`}
         >
-          1. List
-        </button>*/}
+          <FiAlignCenter aria-hidden="true" />
+        </button>
 
-        {/* UPLOAD */}
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          aria-label="Alinhar à direita"
+          title="Alinhar à direita"
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "right" }) || editor.isActive("heading", { textAlign: "right" }) ? "is-active" : ""}`}
+        >
+          <FiAlignRight aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+          aria-label="Justificar texto"
+          title="Justificar texto"
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "justify" }) || editor.isActive("heading", { textAlign: "justify" }) ? "is-active" : ""}`}
+        >
+          <FiAlignJustify aria-hidden="true" />
+        </button>
+
         <input
           type="file"
           accept="image/*"
@@ -939,44 +1086,247 @@ export default function Editor({ value, onChange, outletId }) {
 
         <label
           htmlFor="image-upload"
-          className="px-3 py-1 border-2 border-red-500 bg-red-50 text-red-600 font-semibold rounded hover:bg-red-100 cursor-pointer"
+          className="editor-toolbar-action editor-toolbar-upload"
         >
           🖼 Upload
         </label>
 
         <button
           type="button"
-          onClick={() => setProductModalOpen(true)}
-          className="px-3 py-1 border-2 border-blue-500 bg-blue-50 text-blue-600 font-semibold rounded hover:bg-blue-100"
+          onClick={() => {
+            setBannerError("");
+            setBannerModalOpen(true);
+          }}
+          className="editor-toolbar-action editor-toolbar-banner"
         >
-          🛒 Adicionar Itens
+          {bannerUrl ? "Editar banner" : "Adicionar banner"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setProductModalOpen(true)}
+          className="editor-toolbar-action editor-toolbar-products"
+        >
+          🛒 Adicionar itens
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className="editor-toolbar-preview ml-auto"
+        >
+          <FiEye aria-hidden="true" />
+          Pré-visualizar
         </button>
       </div>
 
+      {previewOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="content-preview-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+              <h2
+                id="content-preview-title"
+                className="text-lg font-semibold text-gray-900"
+              >
+                Pré-visualização
+              </h2>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto bg-gray-100 p-4 sm:p-6">
+              <div className="content-preview-page">
+                {bannerUrl && (
+                  <div
+                    className="content-preview-banner"
+                    role="img"
+                    aria-label="Banner"
+                    style={{ backgroundImage: `url("${bannerUrl}")` }}
+                  />
+                )}
+                <div
+                  className="content-preview-body ProseMirror"
+                  dangerouslySetInnerHTML={{ __html: editorHtml }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bannerModalOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="banner-modal-title"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2
+                id="banner-modal-title"
+                className="text-lg font-semibold text-gray-900"
+              >
+                Imagem de banner
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerFile(null);
+                  setBannerModalOpen(false);
+                }}
+                className="rounded-lg px-3 py-1 text-gray-600 hover:bg-gray-100"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {bannerUrl && !bannerFile && (
+              <div
+                role="img"
+                aria-label="Banner atual"
+                className="mb-4 h-48 w-full rounded-lg bg-cover bg-center"
+                style={{ backgroundImage: `url("${bannerUrl}")` }}
+              />
+            )}
+
+            <label
+              htmlFor="banner-image-upload"
+              className="mb-2 block text-sm font-medium text-gray-700"
+            >
+              Selecionar imagem
+            </label>
+            <input
+              ref={bannerFileInputRef}
+              id="banner-image-upload"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                setBannerFile(event.target.files?.[0] || null);
+                setBannerError("");
+              }}
+              className="block w-full text-sm text-gray-700"
+            />
+            <p className="mt-2 text-sm text-gray-500">
+              Tamanho recomendado: 1600 × 400 px (proporção 4:1). A imagem
+              adapta-se ao espaço do banner e pode ser recortada nas laterais
+              em ecrãs mais estreitos; mantenha o elemento principal ao centro.
+            </p>
+            {bannerError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {bannerError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              {bannerUrl && (
+                <button
+                  type="button"
+                  onClick={removeBanner}
+                  className="mr-auto rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 hover:bg-red-100"
+                >
+                  Remover banner
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setBannerFile(null);
+                  setBannerModalOpen(false);
+                }}
+                className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 hover:bg-gray-200"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={uploadBanner}
+                disabled={!bannerFile || isUploadingBanner}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+              >
+                {isUploadingBanner ? "A carregar..." : "Carregar banner"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* EDITOR */}
-      <div className="flex flex-col gap-4 px-4 py-3 overflow-y-auto flex-1">
-        <EditorContent editor={editor} className="h-full" />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <EditorContent editor={editor} className="content-editor-surface" />
       </div>
 
       {/* FLOATING TOOLBAR */}
       {selectedPos !== null && (
         <div
-          className="absolute z-50 flex gap-2 bg-white border shadow-lg rounded-lg px-2 py-1"
+          className="absolute z-50 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 shadow-lg"
           style={{
             top: toolbarPos.top,
             left: toolbarPos.left,
           }}
         >
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            Largura
+            <input
+              type="number"
+              min="50"
+              max="2000"
+              step="10"
+              value={imageWidthDraft}
+              placeholder="Auto"
+              onChange={(event) => setImageWidthDraft(event.target.value)}
+              onBlur={() => {
+                const width = Number(imageWidthDraft);
+                if (!imageWidthDraft) {
+                  resizeSelectedImage(null);
+                } else if (
+                  Number.isFinite(width) &&
+                  width >= 50 &&
+                  width <= 2000
+                ) {
+                  resizeSelectedImage(width);
+                } else {
+                  setImageWidthDraft(
+                    selectedImage?.attrs.width
+                      ? String(selectedImage.attrs.width)
+                      : ""
+                  );
+                }
+              }}
+              aria-label="Largura da imagem em píxeis"
+              className="w-20 rounded border border-gray-300 px-2 py-1"
+            />
+            px
+          </label>
           <button
+            type="button"
+            onClick={() => resizeSelectedImage(null)}
+            className="rounded bg-gray-100 px-2 py-1 text-sm hover:bg-gray-200"
+          >
+            Largura automática
+          </button>
+          <button
+            type="button"
             onClick={removeImage}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+            className="rounded bg-red-500 px-2 py-1 text-sm text-white hover:bg-red-600"
           >
             🗑 Eliminar
           </button>
 
           <button
+            type="button"
             onClick={() => setSelectedPos(null)}
-            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            className="rounded bg-gray-100 px-2 py-1 text-sm hover:bg-gray-200"
           >
             Fechar
           </button>

@@ -200,14 +200,28 @@ const ProductNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
+    const heading = [["strong", {}, HTMLAttributes.name]];
+    if ([true, 1, "1"].includes(HTMLAttributes.order)) {
+      heading.push([
+        "button",
+        {
+          type: "button",
+          class: "product-node-order",
+          "aria-label": "Pedir produto",
+        },
+        "Pedir",
+      ]);
+    }
+
     const content = [
-      ["strong", {}, HTMLAttributes.name],
-      HTMLAttributes.description
-        ? ["p", {}, HTMLAttributes.description]
-        : ["p", {}, ""],
+      ["div", { class: "product-node-heading" }, ...heading],
+      ["p", {}, HTMLAttributes.description || ""],
     ];
 
-    if (HTMLAttributes.productType === "Produto" && HTMLAttributes.price != null) {
+    if (
+      HTMLAttributes.productType === "Produto" &&
+      HTMLAttributes.price != null
+    ) {
       content.push(["p", {}, `${Number(HTMLAttributes.price).toFixed(2)} €`]);
     }
 
