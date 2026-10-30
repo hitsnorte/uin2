@@ -133,7 +133,15 @@ export default function MenusPage() {
         throw new Error(data.error || "Erro ao carregar conteúdo do menu.");
       }
 
-      setEditorContent(data.content);
+      setEditorContent(
+        data.content
+          ? { ...data.content, banner_url: data.banner_url || "" }
+          : {
+              editor: { type: "doc", content: [{ type: "paragraph" }] },
+              selectedProducts: [],
+              banner_url: data.banner_url || "",
+            }
+      );
     } catch (error) {
       console.error(error);
       setContentError(error.message || "Erro ao carregar conteúdo do menu.");
@@ -152,6 +160,7 @@ export default function MenusPage() {
 
     setIsSavingContent(true);
     try {
+      const { banner_url, ...content } = editorContent || {};
       const response = await fetch("/api/menu-content", {
         method: "POST",
         headers: {
@@ -159,7 +168,8 @@ export default function MenusPage() {
         },
         body: JSON.stringify({
           menu_id: selectedMenu.menu_id,
-          content: editorContent,
+          content: Object.keys(content).length ? content : null,
+          banner_url: banner_url || "",
         }),
       });
       const result = await response.json();
@@ -661,11 +671,9 @@ export default function MenusPage() {
 
       {/* CONTENT MODAL */}
       {showContentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-
-          <div className="bg-white w-[90vw] h-[85vh] rounded-2xl p-6 flex flex-col">
-
-            <h2 className="text-xl font-semibold mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex h-[85vh] w-[90vw] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <h2 className="shrink-0 border-b border-gray-200 px-6 py-4 text-lg font-semibold">
               Conteúdo - {selectedMenu?.menu_name1}
             </h2>
 
@@ -683,37 +691,52 @@ export default function MenusPage() {
                   value={editorContent}
                   onChange={setEditorContent}
                   outletId={selectedMenu?.outlet_id}
+                  previewTitle={
+                    outlets.find(
+                      (outlet) =>
+                        Number(outlet.outlet_id) ===
+                        Number(selectedMenu?.outlet_id)
+                    )?.outlet_name1 || "Menus"
+                  }
+                  previewItems={menus
+                    .filter(
+                      (menu) =>
+                        Number(menu.outlet_id) ===
+                        Number(selectedMenu?.outlet_id)
+                    )
+                    .map((menu) => ({
+                      id: menu.menu_id,
+                      name: menu.menu_name1 || "Menu",
+                      active:
+                        Number(menu.menu_id) === Number(selectedMenu?.menu_id),
+                    }))}
                 />
               )}
             </div>
 
-            <div className="flex justify-end gap-2 mt-4">
-
+            <div className="flex shrink-0 justify-end gap-2 border-t border-gray-200 px-6 py-3">
               <button
                 type="button"
                 onClick={() => setShowContentModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg"
+                className="rounded-lg border border-gray-300 bg-gray-100 px-5 py-2 text-sm text-gray-800 hover:bg-gray-200"
               >
-                Fechar
+                Cancelar
               </button>
 
               <button
                 type="button"
                 onClick={saveContent}
                 disabled={isLoadingContent || !!contentError || isSavingContent}
-                className={`px-4 py-2 rounded-lg ${
+                className={`rounded-lg px-5 py-2 text-sm ${
                   isLoadingContent || contentError || isSavingContent
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-red-500 text-white"
+                    ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                    : "bg-red-700 text-white hover:bg-red-800"
                 }`}
               >
                 {isSavingContent ? "A guardar..." : "Guardar"}
               </button>
-
             </div>
-
           </div>
-
         </div>
       )}
 

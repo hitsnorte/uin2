@@ -61,10 +61,13 @@ export async function GET(req) {
         submenu_id: submenu.submenu_id,
       },
       orderBy: { content_id: "desc" },
-      select: { content: true },
+      select: { content: true, banner_url: true },
     });
 
-    return Response.json({ content: submenuContent?.content ?? null });
+    return Response.json({
+      content: submenuContent?.content ?? null,
+      banner_url: submenuContent?.banner_url ?? null,
+    });
   } catch (error) {
     console.error("Erro ao carregar conteúdo do submenu:", error);
     return Response.json(
@@ -99,7 +102,7 @@ export async function POST(req) {
         submenu_id: submenu.submenu_id,
       },
       orderBy: { content_id: "desc" },
-      select: { content_id: true },
+      select: { content_id: true, banner_url: true },
     });
 
     const content = body?.content ?? {
@@ -109,12 +112,17 @@ export async function POST(req) {
       },
       selectedProducts: [],
     };
+    const bannerUrl =
+      typeof body?.banner_url === "string"
+        ? body.banner_url.trim() || null
+        : existingContent?.banner_url ?? null;
 
     const savedContent = existingContent
       ? await prisma.menuSubmenuContent.update({
           where: { content_id: existingContent.content_id },
           data: {
             content,
+            banner_url: bannerUrl,
             updated_at: new Date(),
             updated_by: userId,
           },
@@ -124,6 +132,7 @@ export async function POST(req) {
             menu_id: submenu.menu_id,
             submenu_id: submenuId,
             content,
+            banner_url: bannerUrl,
             created_by: userId,
             updated_by: userId,
           },
