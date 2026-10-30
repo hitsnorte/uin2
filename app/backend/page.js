@@ -13,22 +13,34 @@ export default function Dashboard() {
   const username = session?.user?.name || "Utilizador";
 
   const router = useRouter();
-
+  
   const [showQR, setShowQR] = useState(false);
-
+  
   const baseUrl =
-    typeof window !== "undefined"
+  typeof window !== "undefined"
       ? window.location.origin + "/homepage"
       : "/homepage";
-
+      
   const cards = [
-  {
-    title: "Linguagens",
-    route: "backend/languages",
-    color: "bg-blue-100 border-blue-400 hover:border-blue-500",
-    showFrontend: true,
-  },
-  {
+    {
+      title: "Linguagens",
+      route: "backend/languages",
+      color: "bg-blue-100 border-blue-400 hover:border-blue-500",
+      showFrontend: true,
+    },
+    {
+      title: "Personalizar",
+      route: "backend/personalize",
+      color: "bg-blue-100 border-blue-400 hover:border-blue-500",
+      showFrontend: true,
+    },
+    {
+      title: "Configurações",
+      route: "backend/advancedConfigurations",
+      color: "bg-blue-100 border-blue-400 hover:border-blue-500",
+      showFrontend: false,
+    },
+    {
     title: "Areas",
     route: "backend/areas",
     color: "bg-green-100 border-green-400 hover:border-green-500",
@@ -53,12 +65,6 @@ export default function Dashboard() {
     showFrontend: true,
   },
   {
-    title: "Personalizar",
-    route: "backend/personalize",
-    color: "bg-blue-100 border-blue-400 hover:border-blue-500",
-    showFrontend: true,
-  },
-  {
     title: "Grupos de itens",
     route: "backend/productGroups",
     color: "bg-orange-100 border-orange-400 hover:border-orange-500",
@@ -74,19 +80,13 @@ export default function Dashboard() {
     title: "Categorias de itens",
     route: "backend/productCategories",
     color: "bg-orange-100 border-orange-400 hover:border-orange-500",
-    showFrontend: true,
+    showFrontend: false,
   },
   {
     title: "Itens",
     route: "backend/products",
     color: "bg-orange-100 border-orange-400 hover:border-orange-500",
     showFrontend: true,
-  },
-  {
-    title: "Configurações",
-    route: "backend/advancedConfigurations",
-    color: "bg-blue-100 border-blue-400 hover:border-blue-500",
-    showFrontend: false,
   }
 ];
 
