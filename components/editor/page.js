@@ -493,7 +493,12 @@ export default function Editor({
             throw new Error(`Não foi possível carregar o item ${id}.`);
           }
           const item = await res.json();
-          return ensureOutletItem(item.item_id);
+          const outletItem = await ensureOutletItem(item.item_id);
+          return {
+            ...outletItem,
+            item_image_url:
+              outletItem.item_image_url || item.item_image_url || "",
+          };
         })
       );
 
@@ -824,7 +829,7 @@ export default function Editor({
         sourceItemId: result.item_id,
         name: result.item_name1 || "Item sem nome",
         description: result.item_description1 || "",
-        imageUrl: result.item_image_url || "",
+        imageUrl: result.item_image_url || node.attrs.imageUrl || "",
         productType: result.item_type || "",
         price: result.item_price,
         order: result.order,
@@ -895,7 +900,14 @@ export default function Editor({
             )
           )
           .filter(Boolean)
-          .map((product) => ensureOutletItem(product.item_id))
+          .map(async (product) => {
+            const outletItem = await ensureOutletItem(product.item_id);
+            return {
+              ...outletItem,
+              item_image_url:
+                outletItem.item_image_url || product.item_image_url || "",
+            };
+          })
       );
     } catch (error) {
       console.error(error);

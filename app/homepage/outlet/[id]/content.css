@@ -269,11 +269,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin: 1.5rem 0;
-  padding: 1.25rem;
+  gap: 12px;
+  margin: 0.6rem 0;
+  padding: 8px 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  border-radius: 10px;
   background: #f9fafb;
 }
 
@@ -294,29 +294,51 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  min-height: 24px;
 }
 
 .ProseMirror [data-product-node] strong {
   display: block;
   min-width: 0;
+  overflow: hidden;
   color: #111827;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ProseMirror [data-product-node] p {
-  margin: 0.5rem 0 0;
+  margin: 3px 0 0;
   color: #4b5563;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.ProseMirror .product-node-description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.ProseMirror .product-node-price {
+  color: #111827;
+  font-weight: 600;
 }
 
 .ProseMirror .product-node-order {
+  align-self: center;
   flex: 0 0 auto;
   border: 0;
   border-radius: 6px;
-  padding: 8px 14px;
+  padding: 6px 10px;
   color: #fff;
   background: #dc2626;
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -331,11 +353,11 @@
 }
 
 .ProseMirror [data-product-node] img {
-  width: 144px;
-  height: 96px;
-  flex: 0 0 144px;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .ProseMirror .product-node-actions {
@@ -442,13 +464,26 @@
   }
 
   .ProseMirror [data-product-node] {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    gap: 8px;
+    padding: 7px 9px;
   }
 
   .ProseMirror [data-product-node] img {
-    width: 96px;
-    height: 72px;
-    flex-basis: 96px;
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+
+  .ProseMirror [data-product-node] strong {
+    font-size: 0.9rem;
+  }
+
+  .ProseMirror [data-product-node] p {
+    font-size: 0.78rem;
+  }
+
+  .ProseMirror .product-node-order {
+    padding: 5px 8px;
+    font-size: 11px;
   }
 }

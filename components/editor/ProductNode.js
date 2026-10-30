@@ -140,15 +140,16 @@ const ProductNode = Node.create({
           typeof options.onProductOrder === "function" &&
           [true, 1, "1"].includes(attrs.order);
         orderButton.hidden = !canOrder;
-        if (canOrder) heading.appendChild(orderButton);
         content.appendChild(heading);
 
         const description = document.createElement("p");
+        description.className = "product-node-description";
         description.textContent = attrs.description || "";
-        content.appendChild(description);
+        if (attrs.description) content.appendChild(description);
 
         if (attrs.productType === "Produto" && attrs.price != null) {
           const price = document.createElement("p");
+          price.className = "product-node-price";
           price.textContent = `${Number(attrs.price).toFixed(2)} €`;
           content.appendChild(price);
         }
@@ -167,6 +168,7 @@ const ProductNode = Node.create({
       }
 
       dom.appendChild(content);
+      dom.appendChild(orderButton);
       dom.appendChild(actions);
       updateNodeView(node);
 
@@ -201,28 +203,25 @@ const ProductNode = Node.create({
 
   renderHTML({ HTMLAttributes }) {
     const heading = [["strong", {}, HTMLAttributes.name]];
-    if ([true, 1, "1"].includes(HTMLAttributes.order)) {
-      heading.push([
-        "button",
-        {
-          type: "button",
-          class: "product-node-order",
-          "aria-label": "Pedir produto",
-        },
-        "Pedir",
+    const content = [["div", { class: "product-node-heading" }, ...heading]];
+
+    if (HTMLAttributes.description) {
+      content.push([
+        "p",
+        { class: "product-node-description" },
+        HTMLAttributes.description,
       ]);
     }
-
-    const content = [
-      ["div", { class: "product-node-heading" }, ...heading],
-      ["p", {}, HTMLAttributes.description || ""],
-    ];
 
     if (
       HTMLAttributes.productType === "Produto" &&
       HTMLAttributes.price != null
     ) {
-      content.push(["p", {}, `${Number(HTMLAttributes.price).toFixed(2)} €`]);
+      content.push([
+        "p",
+        { class: "product-node-price" },
+        `${Number(HTMLAttributes.price).toFixed(2)} €`,
+      ]);
     }
 
     const children = [
@@ -233,6 +232,18 @@ const ProductNode = Node.create({
       children.push([
         "img",
         { src: HTMLAttributes.imageUrl, alt: HTMLAttributes.name },
+      ]);
+    }
+
+    if ([true, 1, "1"].includes(HTMLAttributes.order)) {
+      children.push([
+        "button",
+        {
+          type: "button",
+          class: "product-node-order",
+          "aria-label": "Pedir produto",
+        },
+        "Pedir",
       ]);
     }
 

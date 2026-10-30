@@ -209,7 +209,7 @@ export default function ItemModal({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="item-modal-vat" className="text-sm font-medium text-gray-700">
+              <label htmlFor="item-modal-vat" className="text-sm font-medium text-gray-700 mt-3">
                 IVA (%)
               </label>
               <input

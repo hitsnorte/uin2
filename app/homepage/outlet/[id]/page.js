@@ -195,7 +195,19 @@ export default function OutletPage() {
               ? `/api/products/${productId}`
               : `/api/outlet-items/${productId}`;
           const response = await fetch(endpoint);
-          return response.ok ? response.json() : null;
+          if (!response.ok) return null;
+
+          const product = await response.json();
+          if (product.item_image_url || sourceItemId == null) return product;
+
+          const sourceResponse = await fetch(`/api/products/${sourceItemId}`);
+          if (!sourceResponse.ok) return product;
+
+          const sourceProduct = await sourceResponse.json();
+          return {
+            ...product,
+            item_image_url: sourceProduct.item_image_url || "",
+          };
         })
       );
 
