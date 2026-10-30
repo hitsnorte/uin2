@@ -1,17 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { syncOutletAvailability } from "@/lib/availability";
-
-function isScheduleJson(value) {
-  return (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    typeof value.name === "string" &&
-    value.days &&
-    typeof value.days === "object" &&
-    !Array.isArray(value.days)
-  );
-}
+import { getScheduleData } from "../utils";
 
 export async function GET(_request, context) {
   const { id } = await context.params;
@@ -28,20 +17,28 @@ export async function GET(_request, context) {
 
 export async function PUT(request, context) {
   const { id } = await context.params;
-  const body = await request.json();
-
-  if (!isScheduleJson(body.schedule_json)) {
-    return Response.json({ error: "Invalid schedule_json" }, { status: 400 });
+  const scheduleId = Number(id);
+  if (!Number.isSafeInteger(scheduleId) || scheduleId < 1) {
+    return Response.json({ error: "Invalid schedule id" }, { status: 400 });
   }
 
-  const scheduleId = Number(id);
+  const body = await request.json();
+  const scheduleData = getScheduleData(body);
+
+  if (!scheduleData) {
+    return Response.json(
+      { error: "Invalid schedule_json or slotDuration" },
+      { status: 400 }
+    );
+  }
+
   const updated = await prisma.$transaction(async (transaction) => {
     const savedSchedule = await transaction.schedules.update({
       where: { schedule_id: scheduleId },
-      data: { schedule_json: body.schedule_json },
+      data: scheduleData,
     });
     const outlets = await transaction.outlets.findMany({
-      where: { schedule_id: scheduleId },
+      where: { schedule_id: scheduleId, reservation: 1 },
       select: { outlet_id: true },
     });
 
@@ -50,7 +47,7 @@ export async function PUT(request, context) {
     }
 
     return savedSchedule;
-  });
+  }, { timeout: 120000 });
 
   return Response.json(updated);
 }

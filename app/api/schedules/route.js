@@ -1,18 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
-function isScheduleJson(value) {
-  return (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    typeof value.name === "string" &&
-    value.days &&
-    typeof value.days === "object" &&
-    !Array.isArray(value.days)
-  );
-}
+import { prisma } from "@/lib/prisma";
+import { getScheduleData } from "./utils";
 
 export async function GET() {
   const schedules = await prisma.schedules.findMany({
@@ -24,13 +11,17 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json();
+  const scheduleData = getScheduleData(body);
 
-  if (!isScheduleJson(body.schedule_json)) {
-    return Response.json({ error: "Invalid schedule_json" }, { status: 400 });
+  if (!scheduleData) {
+    return Response.json(
+      { error: "Invalid schedule_json or slotDuration" },
+      { status: 400 }
+    );
   }
 
   const created = await prisma.schedules.create({
-    data: { schedule_json: body.schedule_json },
+    data: scheduleData,
   });
 
   return Response.json(created, { status: 201 });

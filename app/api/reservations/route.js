@@ -81,14 +81,16 @@ export async function POST(request) {
 
       const schedule = await transaction.schedules.findUnique({
         where: { schedule_id: outlet.schedule_id },
-        select: { schedule_json: true, slotDuration: true },
+        select: {
+          schedule_json: true,
+          slotDuration: true,
+        },
       });
       if (!schedule) {
         const error = new Error("O horário associado ao outlet não existe.");
         error.status = 409;
         throw error;
       }
-
       const shiftIndex = getReservationShift(
         schedule.schedule_json,
         dateValue,

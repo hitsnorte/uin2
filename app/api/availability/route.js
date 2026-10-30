@@ -76,7 +76,10 @@ export async function GET(request) {
     const [schedule, rows] = await Promise.all([
       prisma.schedules.findUnique({
         where: { schedule_id: outlet.schedule_id },
-        select: { schedule_json: true, slotDuration: true },
+        select: {
+          schedule_json: true,
+          slotDuration: true,
+        },
       }),
       prisma.availability.findMany({
         where: {
