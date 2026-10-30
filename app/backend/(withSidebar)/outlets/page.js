@@ -9,6 +9,16 @@ import { QRCodeCanvas } from "qrcode.react";
 import { IoQrCode } from "react-icons/io5";
 import { FaPencilAlt } from "react-icons/fa";
 
+const SCHEDULE_DAYS = [
+  { key: "segunda", label: "Segunda-feira" },
+  { key: "terca", label: "Terça-feira" },
+  { key: "quarta", label: "Quarta-feira" },
+  { key: "quinta", label: "Quinta-feira" },
+  { key: "sexta", label: "Sexta-feira" },
+  { key: "sabado", label: "Sábado" },
+  { key: "domingo", label: "Domingo" },
+];
+
 function getScheduleName(schedule) {
   let data = schedule.schedule_json;
 
@@ -21,6 +31,64 @@ function getScheduleName(schedule) {
   }
 
   return data?.name || `Horário ${schedule.schedule_id}`;
+}
+
+function getScheduleInfoLines(schedule) {
+  if (!schedule) return [];
+
+  let data = schedule.schedule_json;
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      data = null;
+    }
+  }
+
+  const lines = SCHEDULE_DAYS.flatMap(({ key, label }) => {
+    const times = Array.isArray(data?.days?.[key]) ? data.days[key] : [];
+    const ranges = times
+      .filter((time) => time?.start && time?.end)
+      .map((time) => `${time.start}–${time.end}`);
+
+    return [{ label, value: ranges.length ? ranges.join(", ") : "Encerrado" }];
+  });
+
+  return lines;
+}
+
+function ScheduleInfo({ schedule }) {
+  const infoLines = getScheduleInfoLines(schedule);
+
+  return (
+    <details className="group relative inline-flex">
+      <summary
+        aria-label="Informações do horário"
+        className="inline-grid h-5 w-5 cursor-pointer list-none place-items-center rounded-full bg-blue-50 text-xs font-bold leading-none text-blue-700 shadow-sm transition hover:bg-blue-100 hover:text-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 active:scale-95 marker:hidden"
+      >
+        <span className="block translate-y-[4px] leading-none not-italic">i</span>
+      </summary>
+      <div className="absolute left-0 top-full z-50 mt-2 hidden w-80 max-w-[85vw] rounded-xl border border-gray-200 bg-white p-3 text-xs font-normal text-gray-700 shadow-xl group-open:block group-hover:block group-focus-within:block">
+        <p className="mb-2 border-b border-gray-100 pb-2 font-semibold text-gray-800">
+          {schedule ? getScheduleName(schedule) : "Detalhes do horário"}
+        </p>
+        {schedule ? (
+          <ul className="flex flex-col gap-1">
+            {infoLines.map(({ label, value }) => (
+              <li key={label} className="flex items-start justify-between gap-3">
+                <span className="text-gray-600">{label}</span>
+                <span className={value === "Encerrado" ? "text-gray-400" : "text-right font-medium text-gray-800"}>
+                  {value}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>Selecione um horário para ver os detalhes.</p>
+        )}
+      </div>
+    </details>
+  );
 }
 
 async function getOutletAccessRooms(outletId) {
@@ -996,7 +1064,7 @@ export default function OutletsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-2xl w-[450px] max-h-[90vh] overflow-hidden flex flex-col"
+            className={`bg-white rounded-2xl ${activeTab === "general" ? "w-[min(480px,calc(100vw-2rem))]" : "w-[min(450px,calc(100vw-2rem))]"} max-h-[90vh] overflow-hidden flex flex-col`}
           >
             <div className="min-h-0 overflow-y-auto p-6 flex flex-col gap-3">
 
@@ -1084,9 +1152,12 @@ export default function OutletsPage() {
                 {form.associate_schedule && (
                   <>
                     <div className="flex flex-col gap-1">
-                      <label htmlFor="general_schedule_id" className="text-xs text-gray-500 font-bold">
-                        Horário associado
-                      </label>
+                      <div className="flex items-center gap-1">
+                        <label htmlFor="general_schedule_id" className="text-xs text-gray-500 font-bold">
+                          Horário associado
+                        </label>
+                        <ScheduleInfo schedule={selectedSchedule} />
+                      </div>
                       <select
                         id="general_schedule_id"
                         name="schedule_id"
@@ -1376,9 +1447,12 @@ export default function OutletsPage() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="reservation_schedule_id" className="text-xs text-gray-500 font-bold">
-                    Horário
-                  </label>
+                  <div className="flex items-center gap-1">
+                    <label htmlFor="reservation_schedule_id" className="text-xs text-gray-500 font-bold">
+                      Horário
+                    </label>
+                    <ScheduleInfo schedule={selectedSchedule} />
+                  </div>
                   <select
                     id="reservation_schedule_id"
                     name="schedule_id"
