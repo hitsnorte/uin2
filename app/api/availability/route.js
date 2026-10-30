@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getFoSessionUser } from "@/lib/foSession";
 import {
   formatReservationTime,
   getRequiredSlotTimes,
@@ -42,6 +43,24 @@ export async function GET(request) {
         { status: 404 }
       );
     }
+    const items = await prisma.outletItems.findMany({
+      where: {
+        outlet_id: outletId,
+        is_reservation_item: true,
+        shift_index: { not: null },
+      },
+      select: { shift_index: true, item_duration: true, checkin: true },
+    });
+
+    if (
+      items.some((item) => item.checkin === "1") &&
+      !(await getFoSessionUser())
+    ) {
+      return Response.json(
+        { error: "Inicie sessão para consultar esta reserva." },
+        { status: 401 }
+      );
+    }
     if (!outlet.schedule_id) return Response.json([]);
 
     const typologies = outlet.typologies.filter(
@@ -50,18 +69,10 @@ export async function GET(request) {
     const typologyIds = typologies.map((typology) => typology.typology_id);
     if (!typologyIds.length) return Response.json([]);
 
-    const [schedule, items, rows] = await Promise.all([
+    const [schedule, rows] = await Promise.all([
       prisma.schedules.findUnique({
         where: { schedule_id: outlet.schedule_id },
         select: { schedule_json: true, slotDuration: true },
-      }),
-      prisma.outletItems.findMany({
-        where: {
-          outlet_id: outletId,
-          is_reservation_item: true,
-          shift_index: { not: null },
-        },
-        select: { shift_index: true, item_duration: true },
       }),
       prisma.availability.findMany({
         where: {

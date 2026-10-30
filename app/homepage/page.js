@@ -112,6 +112,8 @@ export default function Homepage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [pendingReservationOutletId, setPendingReservationOutletId] =
+    useState(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -120,6 +122,24 @@ export default function Homepage() {
   const t = useTranslations();
 
   function openTableReservation(outletId) {
+    const outlet = outlets.find(
+      (item) => Number(item.outlet_id) === Number(outletId)
+    );
+    const requiresLogin = outlet?.OutletItems?.some((item) =>
+      isActive(item.checkin)
+    );
+
+    if (requiresLogin && checkingSession) return;
+
+    if (requiresLogin && !isLoggedIn) {
+      setPendingReservationOutletId(Number(outletId));
+      setSignInStep("method");
+      setSignInError("");
+      setSignInMessage("");
+      setShowSignInModal(true);
+      return;
+    }
+
     router.push(`/table-reservation?outlet_id=${outletId}`);
   }
 
@@ -132,6 +152,13 @@ export default function Homepage() {
 
     // Permite o parametro "opensigninmodalaccesscode" na URL para abrir o modal de login diretamente no passo de código de acesso
     const searchParams = new URLSearchParams(window.location.search);
+    const requestedReservationOutletId = getRequestedId(
+      searchParams,
+      "reservation_outlet_id"
+    );
+    if (!Number.isNaN(requestedReservationOutletId)) {
+      setPendingReservationOutletId(requestedReservationOutletId);
+    }
     if (searchParams.has("opensigninmodalaccesscode")) {
       setSignInStep("code");
       setShowSignInModal(true);
@@ -143,6 +170,21 @@ export default function Homepage() {
     fetchData();
     checkSession();
   }, []);
+
+  useEffect(() => {
+    if (
+      checkingSession ||
+      !isLoggedIn ||
+      !pendingReservationOutletId
+    ) {
+      return;
+    }
+
+    setPendingReservationOutletId(null);
+    router.push(
+      `/table-reservation?outlet_id=${pendingReservationOutletId}`
+    );
+  }, [checkingSession, isLoggedIn, pendingReservationOutletId, router]);
 
   useEffect(() => {
     if (!isLoggedIn) return;

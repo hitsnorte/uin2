@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getFoSessionUser } from "@/lib/foSession";
 import {
   formatReservationTime,
   getRequiredSlotTimes,
@@ -112,6 +113,12 @@ export async function POST(request) {
       }
 
       const item = shiftItems[0];
+      if (item.checkin === "1" && !(await getFoSessionUser(transaction))) {
+        const error = new Error("Inicie sessão para reservar este item.");
+        error.status = 401;
+        throw error;
+      }
+
       const duration = Number(item.item_duration);
       const slotDuration =
         Number.isSafeInteger(schedule.slotDuration) && schedule.slotDuration > 0

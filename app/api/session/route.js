@@ -1,37 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-import { cookies } from "next/headers";
-
-const prisma = new PrismaClient();
+import { getFoSessionUser } from "@/lib/foSession";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-
-    const sessionToken =
-      cookieStore.get("userFOSession")?.value;
-
-    // Não existe cookie
-    if (!sessionToken) {
-      return Response.json({
-        authenticated: false,
-      });
-    }
-
-    // Procurar sessão válida
-    const user = await prisma.users_FO.findFirst({
-      where: {
-        session_token: sessionToken,
-        session_expires_at: {
-          gt: new Date(),
-        },
-      },
-      select: {
-        id: true,
-        email: true,
-      },
-    });
-
-    // Sessão inválida ou expirada
+    const user = await getFoSessionUser();
     if (!user) {
       return Response.json({
         authenticated: false,
