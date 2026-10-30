@@ -121,6 +121,7 @@ export default function OutletsPage() {
     associate_schedule: false,
     access_points: false,
     reservation: false,
+    combine_tables: false,
     service_reservation: false,
     takeaway_order: false,
     order: false,
@@ -214,6 +215,7 @@ export default function OutletsPage() {
       associate_schedule: false,
       access_points: false,
       reservation: false,
+      combine_tables: false,
       service_reservation: false,
       takeaway_order: false,
       order: false,
@@ -252,6 +254,7 @@ export default function OutletsPage() {
       associate_schedule: outlet.associate_schedule ?? false,
       access_points: outlet.access_points ?? false,
       reservation: outlet.reservation === 1 || outlet.reservation === "1",
+      combine_tables: outlet.combine_tables ?? false,
       service_reservation: outlet.service_reservation ?? false,
       takeaway_order: outlet.takeaway_order ?? false,
       order: outlet.order === 1 || outlet.order === "1",
@@ -399,6 +402,10 @@ export default function OutletsPage() {
         ...currentForm,
         [name]: checked,
       };
+
+      if (name === "reservation" && !checked) {
+        nextForm.combine_tables = false;
+      }
 
       if (checked) {
         if (name === "reservation") {
@@ -1235,6 +1242,21 @@ export default function OutletsPage() {
             ) : activeTab === "tableReservation" ? (
               <div className="flex flex-col gap-3">
                 <h3 className="text-sm text-gray-600 font-semibold">Configurações de reserva de mesa</h3>
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    name="combine_tables"
+                    checked={Boolean(form.combine_tables)}
+                    onChange={handleSettingChange}
+                    className="mt-0.5 h-4 w-4 accent-red-500"
+                  />
+                  <span>
+                    <span className="block font-medium">Permitir juntar mesas</span>
+                    <span className="block text-xs text-gray-500">
+                      Só combina mesas disponíveis na mesma sala.
+                    </span>
+                  </span>
+                </label>
                 <div className="flex flex-col gap-1">
                   <label
                     htmlFor="reservation_item_to_add"

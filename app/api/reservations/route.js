@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getFoSessionUser } from "@/lib/foSession";
+import { findRoomTableCombination } from "@/lib/tableAvailability";
 import {
   formatReservationTime,
   getRequiredSlotTimes,
@@ -53,8 +54,8 @@ export async function POST(request) {
         select: {
           reservation: true,
           schedule_id: true,
+          combine_tables: true,
           typologies: {
-            where: { seats: { gte: people } },
             select: { typology_id: true, seats: true },
             orderBy: [{ seats: "asc" }, { typology_id: "asc" }],
           },
@@ -67,9 +68,12 @@ export async function POST(request) {
         throw error;
       }
 
-      if (!outlet.typologies.length) {
+      const typologies = outlet.typologies.filter(
+        (typology) => Number(typology.seats) > 0
+      );
+      if (!typologies.length) {
         const error = new Error(
-          "Não existe uma tipologia com lugares suficientes para este grupo."
+          "Não existem mesas configuradas para este outlet."
         );
         error.status = 409;
         throw error;
@@ -134,92 +138,120 @@ export async function POST(request) {
         error.status = 409;
         throw error;
       }
-      const requiredTimeLabels = new Set(
-        requiredTimes.map(formatReservationTime)
-      );
-
-      for (const typology of outlet.typologies) {
-        const typologyRows = await transaction.availability.findMany({
-          where: {
-            typology_id: typology.typology_id,
-            availability_date: date,
-            available_capacity: { gt: 0 },
-          },
-          orderBy: { start_time: "asc" },
-        });
-        const availableRows = typologyRows.filter((row) =>
-          requiredTimeLabels.has(formatReservationTime(row.start_time))
+      const typologyIds = typologies.map((typology) => typology.typology_id);
+      const availabilityRows = await transaction.availability.findMany({
+        where: {
+          typology_id: { in: typologyIds },
+          availability_date: date,
+          available_capacity: { gt: 0 },
+        },
+        orderBy: [{ start_time: "asc" }, { room_id: "asc" }],
+      });
+      const tableCombination = findRoomTableCombination({
+        rows: availabilityRows,
+        typologies,
+        requiredTimes,
+        people,
+        allowCombination: outlet.combine_tables,
+      });
+      if (!tableCombination) {
+        const error = new Error(
+          "Não há mesas disponíveis para este grupo durante toda a duração da reserva."
         );
-        if (
-          availableRows.length !== requiredTimes.length ||
-          requiredTimes.some(
-            (requiredTime) =>
-              !availableRows.some(
-                (row) =>
-                  formatReservationTime(row.start_time) ===
-                  formatReservationTime(requiredTime)
-              )
-          )
-        ) {
-          continue;
-        }
+        error.status = 409;
+        throw error;
+      }
 
-        let allSlotsReserved = true;
-        for (const row of availableRows) {
+      const rowsByRoomTypeTime = new Map(
+        availabilityRows.map((row) => [
+          `${row.room_id}:${row.typology_id}:${formatReservationTime(
+            row.start_time
+          )}`,
+          row,
+        ])
+      );
+      for (const allocation of tableCombination.allocations) {
+        for (const requiredTime of requiredTimes) {
+          const row = rowsByRoomTypeTime.get(
+            `${allocation.room_id}:${allocation.typology_id}:${formatReservationTime(
+              requiredTime
+            )}`
+          );
+          if (!row) {
+            const error = new Error(
+              "Este horário acabou de ficar indisponível. Atualize os horários e escolha outro."
+            );
+            error.status = 409;
+            throw error;
+          }
+
           const result = await transaction.availability.updateMany({
             where: {
               availability_id: row.availability_id,
-              available_capacity: { gt: 0 },
+              available_capacity: { gte: allocation.table_count },
             },
-            data: { available_capacity: { decrement: 1 } },
+            data: {
+              available_capacity: { decrement: allocation.table_count },
+            },
           });
           if (result.count !== 1) {
-            allSlotsReserved = false;
-            break;
+            const error = new Error(
+              "Este horário acabou de ficar indisponível. Atualize os horários e escolha outro."
+            );
+            error.status = 409;
+            throw error;
           }
         }
-        if (!allSlotsReserved) {
-          const error = new Error(
-            "Este horário acabou de ficar indisponível. Atualize os horários e escolha outro."
-          );
-          error.status = 409;
-          throw error;
-        }
-
-        const created = await transaction.reservations.create({
-          data: {
-            outlet_id: outletId,
-            outlet_item_id: item.outlet_item_id,
-            typology_id: typology.typology_id,
-            pax_size: people,
-            start_at: startAt,
-            end_at: new Date(startAt.getTime() + duration * 60 * 1000),
-            duration_minutes: duration,
-            source: "online",
-          },
-          select: {
-            reservation_id: true,
-            outlet_id: true,
-            outlet_item_id: true,
-            typology_id: true,
-            pax_size: true,
-            start_at: true,
-            end_at: true,
-            duration_minutes: true,
-          },
-        });
-
-        return {
-          ...created,
-          typology_id: created.typology_id.toString(),
-        };
       }
 
-      const error = new Error(
-        "Não há mesas disponíveis para este grupo durante toda a duração da reserva."
-      );
-      error.status = 409;
-      throw error;
+      const created = await transaction.reservations.create({
+        data: {
+          outlet_id: outletId,
+          outlet_item_id: item.outlet_item_id,
+          typology_id: BigInt(tableCombination.allocations[0].typology_id),
+          pax_size: people,
+          start_at: startAt,
+          end_at: new Date(startAt.getTime() + duration * 60 * 1000),
+          duration_minutes: duration,
+          source: "online",
+          ReservationTableAllocations: {
+            create: tableCombination.allocations.map((allocation) => ({
+              typology_id: BigInt(allocation.typology_id),
+              room_id: allocation.room_id,
+              table_count: allocation.table_count,
+            })),
+          },
+        },
+        select: {
+          reservation_id: true,
+          outlet_id: true,
+          outlet_item_id: true,
+          typology_id: true,
+          pax_size: true,
+          start_at: true,
+          end_at: true,
+          duration_minutes: true,
+          ReservationTableAllocations: {
+            select: {
+              typology_id: true,
+              room_id: true,
+              table_count: true,
+            },
+          },
+        },
+      });
+
+      return {
+        ...created,
+        typology_id: created.typology_id.toString(),
+        table_allocations: created.ReservationTableAllocations.map(
+          (allocation) => ({
+            ...allocation,
+            typology_id: allocation.typology_id.toString(),
+          })
+        ),
+        ReservationTableAllocations: undefined,
+      };
     });
 
     return Response.json(reservation, { status: 201 });

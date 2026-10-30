@@ -167,6 +167,8 @@ export async function POST(req) {
           associate_schedule: toBooleanFlag(associate_schedule),
           access_points: toBooleanFlag(access_points),
           reservation: toNumericFlag(reservation),
+          combine_tables:
+            reservationEnabled && toBooleanFlag(body.combine_tables),
           reservation_item_id: null,
           service_reservation: toBooleanFlag(service_reservation),
           takeaway_order: toBooleanFlag(takeaway_order),

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getFoSessionUser } from "@/lib/foSession";
+import { findRoomTableCombination } from "@/lib/tableAvailability";
 import {
   formatReservationTime,
   getRequiredSlotTimes,
@@ -33,6 +34,7 @@ export async function GET(request) {
       select: {
         reservation: true,
         schedule_id: true,
+        combine_tables: true,
         typologies: { select: { typology_id: true, seats: true } },
       },
     });
@@ -64,7 +66,9 @@ export async function GET(request) {
     if (!outlet.schedule_id) return Response.json([]);
 
     const typologies = outlet.typologies.filter(
-      (typology) => Number(typology.seats) >= people
+      (typology) =>
+        (outlet.combine_tables || Number(typology.seats) >= people) &&
+        Number(typology.seats) > 0
     );
     const typologyIds = typologies.map((typology) => typology.typology_id);
     if (!typologyIds.length) return Response.json([]);
@@ -83,6 +87,7 @@ export async function GET(request) {
         select: {
           availability_id: true,
           typology_id: true,
+          room_id: true,
           start_time: true,
           end_time: true,
           available_capacity: true,
@@ -99,21 +104,15 @@ export async function GET(request) {
       itemsByShift.set(item.shift_index, shiftItems);
     }
 
-    const rowsByTypologyAndTime = new Map();
-    for (const row of rows) {
-      const key = `${row.typology_id}:${formatReservationTime(row.start_time)}`;
-      rowsByTypologyAndTime.set(key, row);
-    }
-
     const slotDuration =
       Number.isSafeInteger(Number(schedule.slotDuration)) && schedule.slotDuration > 0
         ? schedule.slotDuration
         : 30;
     const slots = new Map();
-    for (const row of rows) {
-      if (row.available_capacity <= 0) continue;
-
-      const startTime = formatReservationTime(row.start_time);
+    const startTimes = new Set(
+      rows.map((row) => formatReservationTime(row.start_time))
+    );
+    for (const startTime of startTimes) {
       const shiftIndex = getReservationShift(
         schedule.schedule_json,
         dateValue,
@@ -129,12 +128,18 @@ export async function GET(request) {
       );
       if (!requiredTimes.length) continue;
 
-      const availableForDuration = requiredTimes.every((time) => {
-        const key = `${row.typology_id}:${formatReservationTime(time)}`;
-        return rowsByTypologyAndTime.has(key) &&
-          rowsByTypologyAndTime.get(key).available_capacity > 0;
+      const tableCombination = findRoomTableCombination({
+        rows,
+        typologies,
+        requiredTimes,
+        people,
+        allowCombination: outlet.combine_tables,
       });
-      if (availableForDuration) {
+      if (tableCombination) {
+        const row = rows.find(
+          (availabilityRow) =>
+            formatReservationTime(availabilityRow.start_time) === startTime
+        );
         slots.set(startTime, {
           start_time: startTime,
           end_time: formatReservationTime(row.end_time),

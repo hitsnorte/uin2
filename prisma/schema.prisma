@@ -257,6 +257,7 @@ model Outlets {
   service_reservation    Boolean                  @default(false)
   takeaway_order         Boolean                  @default(false)
   reservation_item_id    Int?
+  combine_tables         Boolean                  @default(false)
   Menus                  Menus[]
   reservationItems       OutletReservationItems[]
   Areas                  Areas?                   @relation(fields: [area_id], references: [area_id], onDelete: NoAction, onUpdate: NoAction, map: "Outlets_ibfk_1")
@@ -372,20 +373,22 @@ model availability {
   total_capacity     Int
   available_capacity Int
   updated_at         DateTime   @default(now()) @db.Timestamp(0)
+  room_id            Int        @default(0)
   typologies         typologies @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_availability_typologies")
 
-  @@unique([typology_id, availability_date, start_time], map: "uq_availability_typology_date_start")
+  @@unique([typology_id, availability_date, start_time, room_id], map: "uq_availability_typology_date_start_room")
   @@index([availability_date, typology_id], map: "idx_availability_date_typology")
 }
 
 model typologies {
-  typology_id  BigInt         @id @default(autoincrement())
-  outlet_id    Int
-  name         String         @db.VarChar(100)
-  seats        Int?
-  Reservations Reservations[]
-  availability availability[]
-  Outlets      Outlets        @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_typologies_outlets")
+  typology_id                 BigInt                        @id @default(autoincrement())
+  outlet_id                   Int
+  name                        String                        @db.VarChar(100)
+  seats                       Int?
+  ReservationTableAllocations ReservationTableAllocations[]
+  Reservations                Reservations[]
+  availability                availability[]
+  Outlets                     Outlets                       @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_typologies_outlets")
 
   @@unique([outlet_id, name], map: "uq_typologies_outlet_name")
 }
@@ -466,27 +469,28 @@ model Orders {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model Reservations {
-  reservation_id   Int         @id @default(autoincrement())
-  outlet_id        Int
-  outlet_item_id   Int
-  pax_size         Int
-  start_at         DateTime    @db.DateTime(0)
-  end_at           DateTime    @db.DateTime(0)
-  duration_minutes Int
-  status           String      @default("confirmed") @db.VarChar(20)
-  source           String      @default("online") @db.VarChar(20)
-  customer_name    String?     @db.VarChar(150)
-  customer_surname String?     @db.VarChar(150)
-  customer_email   String?     @db.VarChar(255)
-  customer_phone   String?     @db.VarChar(30)
-  customer_country String?     @db.VarChar(30)
-  notes            String?     @db.Text
-  created_at       DateTime    @default(now()) @db.DateTime(0)
-  updated_at       DateTime    @default(now()) @db.DateTime(0)
-  typology_id      BigInt?
-  OutletItems      OutletItems @relation(fields: [outlet_item_id], references: [outlet_item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlet_items")
-  Outlets          Outlets     @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlets")
-  typologies       typologies? @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_typologies")
+  reservation_id              Int                           @id @default(autoincrement())
+  outlet_id                   Int
+  outlet_item_id              Int
+  pax_size                    Int
+  start_at                    DateTime                      @db.DateTime(0)
+  end_at                      DateTime                      @db.DateTime(0)
+  duration_minutes            Int
+  status                      String                        @default("confirmed") @db.VarChar(20)
+  source                      String                        @default("online") @db.VarChar(20)
+  customer_name               String?                       @db.VarChar(150)
+  customer_surname            String?                       @db.VarChar(150)
+  customer_email              String?                       @db.VarChar(255)
+  customer_phone              String?                       @db.VarChar(30)
+  customer_country            String?                       @db.VarChar(30)
+  notes                       String?                       @db.Text
+  created_at                  DateTime                      @default(now()) @db.DateTime(0)
+  updated_at                  DateTime                      @default(now()) @db.DateTime(0)
+  typology_id                 BigInt?
+  ReservationTableAllocations ReservationTableAllocations[]
+  OutletItems                 OutletItems                   @relation(fields: [outlet_item_id], references: [outlet_item_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlet_items")
+  Outlets                     Outlets                       @relation(fields: [outlet_id], references: [outlet_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_outlets")
+  typologies                  typologies?                   @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservations_typologies")
 
   @@index([outlet_item_id], map: "idx_reservations_outlet_item")
   @@index([outlet_id, start_at], map: "idx_reservations_outlet_start")
@@ -500,4 +504,17 @@ model IvaRates {
   name         String  @db.VarChar(100)
   rate         Decimal @db.Decimal(5, 2)
   country_code String? @default("PT") @db.VarChar(2)
+}
+
+model ReservationTableAllocations {
+  reservation_table_allocation_id Int          @id @default(autoincrement())
+  reservation_id                  Int
+  typology_id                     BigInt
+  room_id                         Int          @default(0)
+  table_count                     Int
+  Reservations                    Reservations @relation(fields: [reservation_id], references: [reservation_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reservation_table_allocations_reservation")
+  typologies                      typologies   @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_reservation_table_allocations_typology")
+
+  @@index([reservation_id], map: "idx_reservation_table_allocations_reservation")
+  @@index([typology_id], map: "idx_reservation_table_allocations_typology")
 }

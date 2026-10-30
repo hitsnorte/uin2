@@ -177,6 +177,14 @@ export async function PUT(req, context) {
           ...(body.reservation !== undefined && {
             reservation: toNumericFlag(body.reservation),
           }),
+          ...((body.combine_tables !== undefined ||
+            body.reservation !== undefined) && {
+            combine_tables:
+              reservationEnabled &&
+              (body.combine_tables === undefined
+                ? existingOutlet.combine_tables
+                : toBooleanFlag(body.combine_tables)),
+          }),
           ...(body.service_reservation !== undefined && {
             service_reservation: toBooleanFlag(body.service_reservation),
           }),
