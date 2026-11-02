@@ -354,11 +354,23 @@ export default function TableReservationClient() {
                       dateInput?.click();
                     }
                   }}
-                  className="relative flex h-11 w-full items-center rounded-lg border border-gray-300 bg-white px-3 text-left font-normal outline-none focus:border-[var(--primary-color)]"
+                  className="relative flex h-11 w-full items-center rounded-lg border border-gray-300 bg-white px-3 pr-7 text-left font-normal outline-none focus:border-[var(--primary-color)]"
                   style={{ "--primary-color": primaryColor }}
                   aria-label={`Selecionar data, ${formatReservationDate(date)}`}
                 >
                   <span aria-hidden="true">{formatReservationDate(date)}</span>
+                  <svg
+                    aria-hidden="true"
+                    className="absolute right-0 h-5 w-5 text-gray-700"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                 </button>
                 <input
                   ref={dateInputRef}
@@ -424,7 +436,7 @@ export default function TableReservationClient() {
                         setIsConfirmationOpen(true);
                       }}
                       aria-pressed={isSelected}
-                      className="rounded-lg border border-gray-300 px-2 py-3 text-center text-sm font-medium transition sm:px-4 sm:text-base text-black"
+                      className="rounded-lg border border-gray-300 px-2 py-3 text-center text-sm font-medium text-black transition sm:px-4"
                       style={{
                         // color: primaryColor,
                         backgroundColor: isSelected ? primaryColor : "white",
