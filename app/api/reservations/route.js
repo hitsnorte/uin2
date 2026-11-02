@@ -3,9 +3,12 @@ import { getFoSessionUser } from "@/lib/foSession";
 import { findRoomTableCombination } from "@/lib/tableAvailability";
 import {
   formatReservationTime,
+  DEFAULT_RESERVATION_TIME_ZONE,
   getRequiredSlotTimes,
   getReservationShift,
   isReservationDate,
+  isReservationTimeInPast,
+  isValidReservationTimeZone,
   parseReservationTime,
 } from "@/lib/tableReservation";
 
@@ -28,6 +31,10 @@ export async function POST(request) {
   const people = Number(body.pax_size);
   const dateValue = body.date;
   const startTime = body.start_time;
+  const timeZone =
+    typeof body.time_zone === "string" && body.time_zone
+      ? body.time_zone
+      : DEFAULT_RESERVATION_TIME_ZONE;
 
   if (
     !Number.isSafeInteger(outletId) ||
@@ -36,7 +43,8 @@ export async function POST(request) {
     people <= 0 ||
     people > 20 ||
     !isReservationDate(dateValue) ||
-    !isValidTime(startTime)
+    !isValidTime(startTime) ||
+    !isValidReservationTimeZone(timeZone)
   ) {
     return Response.json(
       { error: "Indique outlet, data, horário e número de pessoas válidos." },
@@ -204,6 +212,14 @@ export async function POST(request) {
             throw error;
           }
         }
+      }
+
+      if (isReservationTimeInPast(dateValue, startTime, new Date(), timeZone)) {
+        const error = new Error(
+          "Não é possível reservar um horário que já passou."
+        );
+        error.status = 409;
+        throw error;
       }
 
       const created = await transaction.reservations.create({

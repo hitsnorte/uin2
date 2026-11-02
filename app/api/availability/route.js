@@ -3,9 +3,13 @@ import { getFoSessionUser } from "@/lib/foSession";
 import { findRoomTableCombination } from "@/lib/tableAvailability";
 import {
   formatReservationTime,
+  DEFAULT_RESERVATION_TIME_ZONE,
   getRequiredSlotTimes,
   getReservationShift,
+  getReservationTimeOptions,
   isReservationDate,
+  isReservationTimeInPast,
+  isValidReservationTimeZone,
 } from "@/lib/tableReservation";
 
 export async function GET(request) {
@@ -13,6 +17,8 @@ export async function GET(request) {
   const outletId = Number(searchParams.get("outlet_id"));
   const dateValue = searchParams.get("date");
   const people = Number(searchParams.get("people"));
+  const timeZone =
+    searchParams.get("time_zone") || DEFAULT_RESERVATION_TIME_ZONE;
 
   if (
     !Number.isSafeInteger(outletId) ||
@@ -20,7 +26,8 @@ export async function GET(request) {
     !isReservationDate(dateValue) ||
     !Number.isSafeInteger(people) ||
     people <= 0 ||
-    people > 20
+    people > 20 ||
+    !isValidReservationTimeZone(timeZone)
   ) {
     return Response.json(
       { error: "Indique um outlet e uma data válidos." },
@@ -63,7 +70,9 @@ export async function GET(request) {
         { status: 401 }
       );
     }
-    if (!outlet.schedule_id) return Response.json([]);
+    if (!outlet.schedule_id) {
+      return Response.json({ slots: [], time_options: [] });
+    }
 
     const typologies = outlet.typologies.filter(
       (typology) =>
@@ -71,7 +80,9 @@ export async function GET(request) {
         Number(typology.seats) > 0
     );
     const typologyIds = typologies.map((typology) => typology.typology_id);
-    if (!typologyIds.length) return Response.json([]);
+    if (!typologyIds.length) {
+      return Response.json({ slots: [], time_options: [] });
+    }
 
     const [schedule, rows] = await Promise.all([
       prisma.schedules.findUnique({
@@ -98,7 +109,7 @@ export async function GET(request) {
         orderBy: [{ start_time: "asc" }, { end_time: "asc" }],
       }),
     ]);
-    if (!schedule) return Response.json([]);
+    if (!schedule) return Response.json({ slots: [], time_options: [] });
 
     const itemsByShift = new Map();
     for (const item of items) {
@@ -111,11 +122,21 @@ export async function GET(request) {
       Number.isSafeInteger(Number(schedule.slotDuration)) && schedule.slotDuration > 0
         ? schedule.slotDuration
         : 30;
+    const timeOptions = getReservationTimeOptions(
+      schedule.schedule_json,
+      dateValue,
+      slotDuration
+    );
     const slots = new Map();
     const startTimes = new Set(
       rows.map((row) => formatReservationTime(row.start_time))
     );
+    const now = new Date();
     for (const startTime of startTimes) {
+      if (isReservationTimeInPast(dateValue, startTime, now, timeZone)) {
+        continue;
+      }
+
       const shiftIndex = getReservationShift(
         schedule.schedule_json,
         dateValue,
@@ -150,11 +171,12 @@ export async function GET(request) {
       }
     }
 
-    return Response.json(
-      [...slots.values()].sort((a, b) =>
+    return Response.json({
+      slots: [...slots.values()].sort((a, b) =>
         a.start_time.localeCompare(b.start_time)
-      )
-    );
+      ),
+      time_options: timeOptions,
+    });
   } catch (error) {
     console.error("Não foi possível carregar a disponibilidade.", error);
     return Response.json(
