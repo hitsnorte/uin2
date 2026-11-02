@@ -255,9 +255,12 @@ export default function SchedulesPage() {
           }),
         }
       );
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error("Não foi possível guardar o horário.");
+        throw new Error(
+          result.error || "Não foi possível guardar o horário."
+        );
       }
 
       setShowModal(false);
