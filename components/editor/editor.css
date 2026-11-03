@@ -26,9 +26,20 @@
 }
 
 .content-editor .ProseMirror img {
-  width: 100%;
+  width: auto;
   height: auto;
   max-width: 100%;
+}
+
+.content-editor .ProseMirror .editor-image-node {
+  display: inline-block;
+  margin: 12px 8px;
+  vertical-align: top;
+}
+
+.content-editor .ProseMirror .editor-image-node.ProseMirror-selectednode {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .editor-toolbar-button,
@@ -310,6 +321,9 @@
 .content-preview-body.ProseMirror img {
   border-radius: 20px;
   cursor: default;
+  height: auto;
+  max-width: 100%;
+  vertical-align: top;
 }
 
 .content-preview-body.ProseMirror img:hover {

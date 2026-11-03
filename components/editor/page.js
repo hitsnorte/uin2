@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import BulletList from "@tiptap/extension-bullet-list";
@@ -21,6 +22,33 @@ import ImageWithDelete, {
 } from "./ImageWithDelete/page";
 import ProductNode from "./ProductNode";
 import "./editor.css";
+
+function normalizeInlineImages(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeInlineImages);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      key === "content" && Array.isArray(entry)
+        ? entry
+            .map(normalizeInlineImages)
+            .flatMap((child) =>
+              value.type !== "paragraph" && child?.type === "image"
+                ? [{ type: "paragraph", content: [child] }]
+                : [child]
+            )
+        : normalizeInlineImages(entry),
+    ])
+  );
+
+  return normalized;
+}
 
 function collectProductIds(value, ids = []) {
   if (Array.isArray(value)) {
@@ -511,8 +539,8 @@ export default function Editor({
 
   const initialEditorContent =
     value && typeof value === "object" && value.editor
-      ? value.editor
-      : value || "<p></p>";
+      ? normalizeInlineImages(value.editor)
+      : normalizeInlineImages(value || "<p></p>");
 
   const editor = useEditor({
     editorProps: {
@@ -535,6 +563,9 @@ export default function Editor({
 
         const coords = view.coordsAtPos(pos);
 
+        view.dispatch(
+          view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos))
+        );
         setSelectedPos(pos);
         setToolbarPos({
           top: coords.top + 30,
@@ -554,7 +585,7 @@ export default function Editor({
       BulletList,
       OrderedList,
       ListItem,
-      ImageWithDelete,
+      ImageWithDelete.configure({ inline: true }),
       TextAlign,
       Underline,
       ProductNode.configure({
@@ -602,10 +633,11 @@ export default function Editor({
     if (!editor) return;
 
     const rawValue = value;
-    const contentValue =
+    const rawContentValue =
       rawValue && typeof rawValue === "object" && rawValue.editor
         ? rawValue.editor
         : rawValue || "<p></p>";
+    const contentValue = normalizeInlineImages(rawContentValue);
 
     const currentContentString =
       typeof contentValue === "string"
@@ -701,6 +733,27 @@ export default function Editor({
       width: width || null,
     });
     editor.view.dispatch(transaction);
+  }
+
+  function applyTextAlign(textAlign) {
+    if (selectedPos !== null) {
+      const resolvedPosition = editor.state.doc.resolve(selectedPos);
+      const parent = resolvedPosition.parent;
+      if (parent.type.name === "paragraph" || parent.type.name === "heading") {
+        const parentPosition =
+          selectedPos - resolvedPosition.parentOffset - 1;
+        editor.view.dispatch(
+          editor.state.tr.setNodeMarkup(parentPosition, undefined, {
+            ...parent.attrs,
+            textAlign,
+          })
+        );
+        editor.view.focus();
+        return;
+      }
+    }
+
+    editor.chain().focus().setTextAlign(textAlign).run();
   }
 
   async function uploadBanner() {
@@ -1001,6 +1054,10 @@ export default function Editor({
   );
   const selectedImage =
     selectedPos === null ? null : editor.state.doc.nodeAt(selectedPos);
+  const selectedImageAlignment =
+    selectedImage?.type.name === "image"
+      ? editor.state.doc.resolve(selectedPos).parent.attrs.textAlign
+      : null;
   const editorHtml = editor.getHTML();
 
   return (
@@ -1039,40 +1096,40 @@ export default function Editor({
 
         <button
           type="button"
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          onClick={() => applyTextAlign("left")}
           aria-label="Alinhar à esquerda"
           title="Alinhar à esquerda"
-          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "left" }) || editor.isActive("heading", { textAlign: "left" }) ? "is-active" : ""}`}
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "left" }) || editor.isActive("heading", { textAlign: "left" }) || selectedImageAlignment === "left" ? "is-active" : ""}`}
         >
           <FiAlignLeft aria-hidden="true" />
         </button>
 
         <button
           type="button"
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          onClick={() => applyTextAlign("center")}
           aria-label="Centrar texto"
           title="Centrar texto"
-          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "center" }) || editor.isActive("heading", { textAlign: "center" }) ? "is-active" : ""}`}
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "center" }) || editor.isActive("heading", { textAlign: "center" }) || selectedImageAlignment === "center" ? "is-active" : ""}`}
         >
           <FiAlignCenter aria-hidden="true" />
         </button>
 
         <button
           type="button"
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          onClick={() => applyTextAlign("right")}
           aria-label="Alinhar à direita"
           title="Alinhar à direita"
-          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "right" }) || editor.isActive("heading", { textAlign: "right" }) ? "is-active" : ""}`}
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "right" }) || editor.isActive("heading", { textAlign: "right" }) || selectedImageAlignment === "right" ? "is-active" : ""}`}
         >
           <FiAlignRight aria-hidden="true" />
         </button>
 
         <button
           type="button"
-          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+          onClick={() => applyTextAlign("justify")}
           aria-label="Justificar texto"
           title="Justificar texto"
-          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "justify" }) || editor.isActive("heading", { textAlign: "justify" }) ? "is-active" : ""}`}
+          className={`editor-toolbar-button ${editor.isActive("paragraph", { textAlign: "justify" }) || editor.isActive("heading", { textAlign: "justify" }) || selectedImageAlignment === "justify" ? "is-active" : ""}`}
         >
           <FiAlignJustify aria-hidden="true" />
         </button>
