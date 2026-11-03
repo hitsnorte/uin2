@@ -240,6 +240,9 @@ export default function TableReservationClient() {
   const selectedStartingTime = selectableTimeOptions.includes(startingTime)
     ? startingTime
     : selectableTimeOptions[0] || "";
+  const hasCustomerNameAndSurname = Boolean(
+    customerName.trim() && customerSurname.trim()
+  );
 
   async function confirmReservation() {
     if (
@@ -254,7 +257,7 @@ export default function TableReservationClient() {
     ) {
       return;
     }
-    if (!customerName.trim() || !customerSurname.trim()) {
+    if (!hasCustomerNameAndSurname) {
       setError("Indique o nome e o apelido.");
       return;
     }
@@ -367,8 +370,8 @@ export default function TableReservationClient() {
             </p>
           )}
 
-          <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
-            <label className="flex flex-col gap-2 text-sm font-medium">
+          <div className="mt-6 grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_minmax(0,0.8fr)] gap-2 sm:gap-4">
+            <label className="flex min-w-0 flex-col gap-2 text-sm font-medium">
               Party
               <select
                 value={people}
@@ -386,7 +389,7 @@ export default function TableReservationClient() {
               </select>
             </label>
 
-            <div className="flex flex-col gap-2 text-sm font-medium">
+            <div className="flex min-w-0 flex-col gap-2 text-sm font-medium">
               <span>Date</span>
               <div className="relative">
                 <button
@@ -434,7 +437,7 @@ export default function TableReservationClient() {
               </div>
             </div>
 
-            <label className="flex flex-col gap-2 text-sm font-medium">
+            <label className="flex min-w-0 flex-col gap-2 text-sm font-medium">
               Time
               <select
                 value={selectedStartingTime}
@@ -563,10 +566,10 @@ export default function TableReservationClient() {
                     <span className="block truncate font-medium">
                       {[customerName, customerSurname]
                         .filter(Boolean)
-                        .join(" ") || "Adicionar nome e apelido"}
+                        .join(" ") || "Add your name and surname"}
                     </span>
                     <span className="mt-0.5 block truncate text-sm text-gray-500">
-                      {userEmail || "Adicionar email"}
+                      {userEmail || "Add your email"}
                     </span>
                   </span>
                   <FaArrowRight
@@ -574,6 +577,12 @@ export default function TableReservationClient() {
                     className="shrink-0 text-gray-500"
                   />
                 </button>
+                {!hasCustomerNameAndSurname && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    Please provide your first and last name under Contact Info to confirm the
+                    booking.
+                  </p>
+                )}
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <p className="font-bold">Rules &amp; restrictions</p>
@@ -612,20 +621,21 @@ export default function TableReservationClient() {
                 disabled={isBooking}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-semibold disabled:opacity-50"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmReservation}
                 disabled={
                   !hasSelectedAvailableSlot ||
+                  !hasCustomerNameAndSurname ||
                   isBooking ||
                   loading
                 }
-                className="flex-1 rounded-lg px-4 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                className="flex-1 rounded-lg px-4 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-white"
                 style={{ backgroundColor: primaryColor }}
               >
-                {isBooking ? "A confirmar..." : "Confirmar"}
+                Ok
               </button>
             </div>
           </section>
@@ -724,14 +734,14 @@ export default function TableReservationClient() {
                   }}
                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-semibold"
                 >
-                  Cancelar
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="flex-1 rounded-lg px-4 py-3 font-semibold text-white transition"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  Guardar
+                  Ok
                 </button>
               </div>
             </form>

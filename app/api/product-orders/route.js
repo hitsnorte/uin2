@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request) {
@@ -29,6 +30,14 @@ export async function POST(request) {
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return Response.json({ error: "Dados do pedido inválidos." }, { status: 400 });
+    }
+
+    const quantity = body.quantity === undefined ? 1 : body.quantity;
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) {
+      return Response.json(
+        { error: "A quantidade deve ser um número inteiro entre 1 e 99." },
+        { status: 400 }
+      );
     }
 
     const outletItemId = Number(body?.outletItemId);
@@ -65,18 +74,47 @@ export async function POST(request) {
     });
 
     const itemName = item.item_name1 || "Item sem nome";
+    const rawUnitPrice =
+      item.item_price == null || item.item_price === ""
+        ? null
+        : Number(item.item_price);
+    if (
+      rawUnitPrice !== null &&
+      (!Number.isFinite(rawUnitPrice) || rawUnitPrice < 0)
+    ) {
+      return Response.json(
+        { error: "O preço configurado para este produto é inválido." },
+        { status: 400 }
+      );
+    }
+
+    const unitPrice = rawUnitPrice;
+    const totalPrice =
+      unitPrice !== null
+        ? Number((unitPrice * quantity).toFixed(2))
+        : null;
+    if (totalPrice !== null && totalPrice > 99_999_999.99) {
+      return Response.json(
+        { error: "O preço total do pedido excede o valor máximo permitido." },
+        { status: 400 }
+      );
+    }
     const order = await prisma.orders.create({
       data: {
         order_name: itemName.slice(0, 150),
         customer_name: (user.email || `Utilizador ${user.id}`).slice(0, 150),
         order_status: status.order_status_id,
+        quantity,
+        price:
+          totalPrice === null
+            ? null
+            : new Prisma.Decimal(totalPrice.toFixed(2)),
       },
-      select: { order_id: true },
+      select: { order_id: true, price: true },
     });
 
     let notificationWarning = null;
     if (item.sendStaychat === "1" && item.staychatWebhook) {
-      const price = Number(item.item_price || 0).toFixed(2);
       try {
         const webhookResponse = await fetch(item.staychatWebhook, {
           method: "POST",
@@ -95,7 +133,11 @@ export async function POST(request) {
                           timestamp: String(Math.floor(Date.now() / 1000)),
                           type: "text",
                           text: {
-                            body: `Pedido: 1x ${itemName} - ${price} €`,
+                            body: `Pedido: ${quantity}x ${itemName}${
+                              totalPrice === null
+                                ? ""
+                                : ` - ${totalPrice.toFixed(2)} €`
+                            }`,
                           },
                         },
                       ],
@@ -125,7 +167,12 @@ export async function POST(request) {
     }
 
     return Response.json(
-      { ok: true, orderId: order.order_id, notificationWarning },
+      {
+        ok: true,
+        orderId: order.order_id,
+        price: order.price?.toString() ?? null,
+        notificationWarning,
+      },
       { status: 201 }
     );
   } catch (error) {

@@ -18,6 +18,18 @@ function formatDate(value) {
       }).format(date);
 }
 
+function formatPrice(value) {
+  if (value == null || value === "") return "—";
+
+  const price = Number(value);
+  return Number.isFinite(price)
+    ? new Intl.NumberFormat("pt-PT", {
+        style: "currency",
+        currency: "EUR",
+      }).format(price)
+    : "—";
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -292,11 +304,12 @@ export default function OrdersPage() {
       )}
 
       <div className="overflow-x-auto overflow-hidden rounded-2xl border bg-white shadow">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="bg-gray-100 text-gray-600">
             <tr>
               <th className="p-4">ID</th>
               <th className="p-4">Pedido</th>
+              <th className="p-4">Preço total</th>
               <th className="p-4">Cliente</th>
               <th className="p-4">Data</th>
               <th className="p-4">Estado</th>
@@ -306,13 +319,13 @@ export default function OrdersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-500">
+                <td colSpan={7} className="p-8 text-center text-gray-500">
                   A carregar pedidos...
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-500">
+                <td colSpan={7} className="p-8 text-center text-gray-500">
                   {orders.length === 0
                     ? "Ainda não existem pedidos."
                     : "Nenhum pedido corresponde aos filtros aplicados."}
@@ -323,7 +336,11 @@ export default function OrdersPage() {
                 <tr key={order.order_id} className="border-t border-gray-100">
                   <td className="p-4 text-gray-500">{order.order_id}</td>
                   <td className="p-4 font-medium text-gray-800">
+                    {order.quantity > 1 ? `${order.quantity} × ` : ""}
                     {order.order_name || "—"}
+                  </td>
+                  <td className="p-4 whitespace-nowrap text-gray-700">
+                    {formatPrice(order.price)}
                   </td>
                   <td className="p-4 text-gray-700">
                     {order.customer_name || "—"}

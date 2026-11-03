@@ -157,7 +157,7 @@ const ProductNode = Node.create({
         if (attrs.imageUrl) {
           if (!image) {
             image = document.createElement("img");
-            dom.insertBefore(image, actions);
+            dom.insertBefore(image, content);
           }
           image.src = attrs.imageUrl;
           image.alt = attrs.name;
@@ -224,9 +224,7 @@ const ProductNode = Node.create({
       ]);
     }
 
-    const children = [
-      ["div", { class: "product-node-content" }, ...content],
-    ];
+    const children = [];
 
     if (HTMLAttributes.imageUrl) {
       children.push([
@@ -234,6 +232,8 @@ const ProductNode = Node.create({
         { src: HTMLAttributes.imageUrl, alt: HTMLAttributes.name },
       ]);
     }
+
+    children.push(["div", { class: "product-node-content" }, ...content]);
 
     if ([true, 1, "1"].includes(HTMLAttributes.order)) {
       children.push([

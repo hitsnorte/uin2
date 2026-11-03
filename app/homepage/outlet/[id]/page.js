@@ -20,6 +20,12 @@ function isActive(value) {
   return value === true || value === 1 || value === "1";
 }
 
+function getProductPrice(product) {
+  if (product?.item_price == null || product.item_price === "") return null;
+  const price = Number(product.item_price);
+  return Number.isFinite(price) && price >= 0 ? price : null;
+}
+
 function collectProductReferences(value, references = []) {
   if (Array.isArray(value)) {
     value.forEach((item) => collectProductReferences(item, references));
@@ -113,6 +119,7 @@ export default function OutletPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedMenuId, setExpandedMenuId] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [orderQuantity, setOrderQuantity] = useState(1);
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderMessage, setOrderMessage] = useState("");
   const [orderSucceeded, setOrderSucceeded] = useState(false);
@@ -351,6 +358,7 @@ export default function OutletPage() {
 
       const product = await response.json();
       setSelectedProduct(product);
+      setOrderQuantity(1);
       setOrderMessage("");
       setOrderSucceeded(false);
     } catch (error) {
@@ -380,6 +388,7 @@ export default function OutletPage() {
           ...(selectedProduct.outlet_item_id
             ? { outletItemId: selectedProduct.outlet_item_id }
             : { productId: selectedProduct.item_id }),
+          quantity: orderQuantity,
         }),
       });
 
@@ -630,6 +639,54 @@ export default function OutletPage() {
                   {selectedProduct.item_name1 || "este artigo"}?
                 </h2>
 
+                <div className="mt-5 flex items-center justify-between">
+                  
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOrderQuantity((quantity) => Math.max(1, quantity - 1))
+                      }
+                      disabled={isOrdering || orderQuantity <= 1}
+                      aria-label="Diminuir quantidade"
+                      className="h-9 w-9 rounded-lg bg-gray-50 text-lg text-black border border-gray-300 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <span
+                      className="min-w-6 text-center font-semibold text-gray-900"
+                      aria-live="polite"
+                    >
+                      {orderQuantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOrderQuantity((quantity) => Math.min(99, quantity + 1))
+                      }
+                      disabled={isOrdering || orderQuantity >= 99}
+                      aria-label="Aumentar quantidade"
+                      className="h-9 w-9 rounded-lg bg-gray-50 text-lg text-black border border-gray-300 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {getProductPrice(selectedProduct) !== null && (
+                  <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-sm">
+                    <span className="text-gray-600">
+                      Total 
+                    </span>
+                    <strong className="text-gray-900">
+                      {new Intl.NumberFormat("pt-PT", {
+                        style: "currency",
+                        currency: "EUR",
+                      }).format(getProductPrice(selectedProduct) * orderQuantity)}
+                    </strong>
+                  </div>
+                )}
+
                 {orderMessage && (
                   <p className="mt-4 text-sm text-gray-700" role="alert">
                     {orderMessage}
@@ -644,9 +701,9 @@ export default function OutletPage() {
                       setOrderMessage("");
                     }}
                     disabled={isOrdering}
-                    className="rounded-lg bg-gray-200 px-4 py-2 text-sm hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-gray-300 px-4 py-2 text-black text-sm hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Não
+                    Cancel
                   </button>
                   <button
                     type="button"
@@ -658,7 +715,7 @@ export default function OutletPage() {
                     }
                     className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
-                    {isOrdering ? "A enviar..." : "Sim, pedir"}
+                    Ok
                   </button>
                 </div>
               </>
