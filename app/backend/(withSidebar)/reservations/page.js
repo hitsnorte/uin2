@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { LuUserRound } from "react-icons/lu";
 import Topbar from "@/components/layout/Topbar";
+import { CiUser } from "react-icons/ci";
 
 function getOutletName(outlet) {
   return (
@@ -388,10 +389,7 @@ export default function ReservationsPage() {
                         className="flex items-center justify-between gap-3 py-1.5 text-sm"
                       >
                         <span className="inline-flex items-center gap-1.5 text-gray-700">
-                          <LuUserRound
-                            aria-hidden="true"
-                            className="h-4 w-4"
-                          />
+                          <CiUser size={20} />
                           <span>
                             × {typology.seats ?? "—"}
                           </span>
