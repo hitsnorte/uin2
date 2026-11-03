@@ -375,7 +375,7 @@ model availability {
   updated_at         DateTime   @default(now()) @db.Timestamp(0)
   room_id            Int        @default(0)
   refText            String?    @db.VarChar(255)
-  updatedBy          String?    @db.VarChar(100)
+  updatedBy          String?    @db.VarChar(50)
   typologies         typologies @relation(fields: [typology_id], references: [typology_id], onDelete: NoAction, onUpdate: NoAction, map: "fk_availability_typologies")
 
   @@unique([typology_id, availability_date, start_time, room_id], map: "uq_availability_typology_date_start_room")
@@ -464,6 +464,7 @@ model Orders {
   order_status  Int?
   created_at    DateTime     @default(now()) @db.Timestamp(0)
   updated_at    DateTime     @default(now()) @db.Timestamp(0)
+  updated_by    String?      @db.VarChar(150)
   OrderStatus   OrderStatus? @relation(fields: [order_status], references: [order_status_id], onDelete: Restrict, map: "fk_orders_order_status")
 
   @@index([order_status], map: "idx_order_status")

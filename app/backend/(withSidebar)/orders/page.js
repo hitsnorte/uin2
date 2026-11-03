@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
-import { TbRefresh } from "react-icons/tb";
+import { TbRefresh, TbSearch } from "react-icons/tb";
+import { FaRegTrashAlt } from "react-icons/fa";
 import { FaPencilAlt } from "react-icons/fa";
 
 function formatDate(value) {
@@ -21,6 +22,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState("");
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
@@ -100,21 +104,57 @@ export default function OrdersPage() {
   }
 
   const filteredOrders = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
-    if (!normalizedSearch) return orders;
+    const normalize = (value) =>
+      String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("pt-PT");
+    const normalizedSearch = normalize(search.trim());
+    const start = startDate ? new Date(`${startDate}T00:00:00`) : null;
+    const end = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
 
-    return orders.filter((order) =>
-      [
-        order.order_id,
-        order.order_name,
-        order.customer_name,
-        order.OrderStatus?.order_status_name,
-      ]
-        .join(" ")
-        .toLocaleLowerCase("pt-PT")
-        .includes(normalizedSearch)
-    );
-  }, [orders, search]);
+    return orders.filter((order) => {
+      const orderDate = order.created_at ? new Date(order.created_at) : null;
+      const orderStatusId =
+        order.order_status ?? order.OrderStatus?.order_status_id;
+
+      if (statusFilter && String(orderStatusId ?? "") !== statusFilter) {
+        return false;
+      }
+      if (
+        start &&
+        (!orderDate ||
+          Number.isNaN(orderDate.getTime()) ||
+          orderDate < start)
+      ) {
+        return false;
+      }
+      if (
+        end &&
+        (!orderDate ||
+          Number.isNaN(orderDate.getTime()) ||
+          orderDate > end)
+      ) {
+        return false;
+      }
+      if (!normalizedSearch) return true;
+
+      return normalize(
+        [
+          order.order_id,
+          order.order_name,
+          order.customer_name,
+          formatDate(order.created_at),
+          order.created_at,
+          order.OrderStatus?.order_status_name,
+        ].join(" ")
+      ).includes(normalizedSearch);
+    });
+  }, [orders, search, statusFilter, startDate, endDate]);
+
+  const hasActiveFilters = Boolean(
+    search.trim() || statusFilter || startDate || endDate
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,23 +162,122 @@ export default function OrdersPage() {
         <Topbar title="Pedidos" />
       </div>
 
-      <div className="my-6 flex items-center justify-between gap-4">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Pesquisar pedidos..."
-          aria-label="Pesquisar pedidos"
-          className="h-11 w-80 max-w-full rounded-lg border border-gray-300 bg-white px-3 outline-none focus:border-red-500"
-        />
-        <button
-          type="button"
-          onClick={fetchOrders}
-          disabled={loading}
-          className="h-11 rounded-lg bg-gray-200 px-4 text-gray-800 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <TbRefresh size={16}/>
-        </button>
+      <div className="my-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="orders-search"
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
+              Pesquisar pedidos
+            </label>
+            <div className="relative">
+              <TbSearch
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                id="orders-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="ID, pedido, cliente, data ou estado..."
+                className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-3 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+              />
+            </div>
+          </div>
+
+          <div className="w-full lg:w-48">
+            <label
+              htmlFor="orders-status-filter"
+              className="mb-1.5 block text-sm font-medium text-gray-700"
+            >
+              Estado
+            </label>
+            <select
+              id="orders-status-filter"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-gray-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
+              <option value="">Todos os estados</option>
+              {statuses.map((status) => (
+                <option
+                  key={status.order_status_id}
+                  value={status.order_status_id}
+                >
+                  {status.order_status_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:w-[340px]">
+            <div>
+              <label
+                htmlFor="orders-start-date"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Desde
+              </label>
+              <input
+                id="orders-start-date"
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-gray-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="orders-end-date"
+                className="mb-1.5 block text-sm font-medium text-gray-700"
+              >
+                Até
+              </label>
+              <input
+                id="orders-end-date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-gray-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatusFilter("");
+                  setStartDate("");
+                  setEndDate("");
+                }}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FaRegTrashAlt size={18} color="red" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={fetchOrders}
+              disabled={loading}
+              aria-label="Atualizar pedidos"
+              title="Atualizar pedidos"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <TbRefresh size={18} />
+            </button>
+          </div>
+        </div>
+        <p aria-live="polite" className="mt-3 text-sm text-gray-500">
+          {filteredOrders.length} de {orders.length} pedidos
+        </p>
       </div>
 
       {loadingError && (
@@ -176,7 +315,7 @@ export default function OrdersPage() {
                 <td colSpan={6} className="p-8 text-center text-gray-500">
                   {orders.length === 0
                     ? "Ainda não existem pedidos."
-                    : "Nenhum pedido corresponde à pesquisa."}
+                    : "Nenhum pedido corresponde aos filtros aplicados."}
                 </td>
               </tr>
             ) : (
