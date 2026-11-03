@@ -251,8 +251,15 @@
 }
 
 .ProseMirror img {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  height: auto;
   border-radius: 20px;
+  vertical-align: top;
+}
+
+.outlet-content-body .ProseMirror > p > img {
+  display: inline-block;
 }
 
 .ProseMirror ul {

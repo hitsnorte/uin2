@@ -317,7 +317,7 @@ export default function OutletPage() {
 
     extensions: [
       StarterKit,
-      ContentImage,
+      ContentImage.configure({ inline: true }),
       TextAlign,
       Underline,
       ProductNode.configure({
