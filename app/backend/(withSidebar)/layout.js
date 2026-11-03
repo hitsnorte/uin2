@@ -7,11 +7,11 @@ export default function WithSidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
 
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
-      <div className="min-w-0 flex-1 p-6">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-6">
         {children}
       </div>
 

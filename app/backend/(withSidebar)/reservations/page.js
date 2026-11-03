@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LuUserRound } from "react-icons/lu";
 import Topbar from "@/components/layout/Topbar";
 
 function getOutletName(outlet) {
@@ -386,11 +387,14 @@ export default function ReservationsPage() {
                         key={typology.typology_id}
                         className="flex items-center justify-between gap-3 py-1.5 text-sm"
                       >
-                        <span className="text-gray-700">
-                          {typology.name}
-                          {typology.seats
-                            ? ` · ${typology.seats} lugares`
-                            : ""}
+                        <span className="inline-flex items-center gap-1.5 text-gray-700">
+                          <LuUserRound
+                            aria-hidden="true"
+                            className="h-4 w-4"
+                          />
+                          <span>
+                            × {typology.seats ?? "—"}
+                          </span>
                         </span>
                         <span className="font-semibold text-gray-900">
                           {typology.available} livres
