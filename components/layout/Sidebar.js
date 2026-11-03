@@ -28,6 +28,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     { name: "Pontos de acesso", path: "/backend/accessPoints" },
     { name: "Tipologias", path: "/backend/typologies" },
     { name: "Pedidos", path: "/backend/orders" },
+    { name: "Reservas", path: "/backend/reservations" },
     {
       name: "Configurações",
       path: "/backend/advancedConfigurations",

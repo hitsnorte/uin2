@@ -11,7 +11,7 @@ export default function WithSidebarLayout({ children }) {
 
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
-      <div className="flex-1 p-6">
+      <div className="min-w-0 flex-1 p-6">
         {children}
       </div>
 
