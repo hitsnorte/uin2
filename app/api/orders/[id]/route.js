@@ -1,7 +1,15 @@
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/lib/auth-options";
 
 export async function PATCH(request, context) {
   try {
+    const session = await getServerSession(authOptions);
+    const updatedBy = session?.user?.name?.trim();
+    if (!updatedBy) {
+      return Response.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
     const { id: rawId } = await context.params;
     const orderId = Number(rawId);
     if (!Number.isSafeInteger(orderId) || orderId <= 0) {
@@ -55,6 +63,7 @@ export async function PATCH(request, context) {
         data: {
           order_status: status.order_status_id,
           updated_at: new Date(),
+          updated_by: updatedBy,
         },
         include: {
           OrderStatus: {
