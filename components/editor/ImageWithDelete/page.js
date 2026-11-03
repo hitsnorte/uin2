@@ -88,7 +88,6 @@ const ImageWithDelete = ContentImage.extend({
     return ({ node, editor, getPos }) => {
       const dom = document.createElement("div");
       dom.style.position = "relative";
-      dom.style.display = "block";
       dom.style.maxWidth = "100%";
       dom.className = "editor-image-node";
 
@@ -169,8 +168,10 @@ const ImageWithDelete = ContentImage.extend({
         img.src = updatedNode.attrs.src;
         img.alt = updatedNode.attrs.alt || "";
         const width = updatedNode.attrs.width;
-        dom.style.width = width ? `${width}px` : "100%";
-        img.style.width = "100%";
+        dom.style.display = "inline-block";
+        dom.style.width = width ? `${width}px` : "auto";
+        img.style.display = "block";
+        img.style.width = width ? "100%" : "auto";
         node = updatedNode;
       }
 
@@ -181,6 +182,9 @@ const ImageWithDelete = ContentImage.extend({
 
       return {
         dom,
+        stopEvent(event) {
+          return event.target === btn || event.target === resizeHandle;
+        },
         update(updatedNode) {
           if (updatedNode.type !== node.type) return false;
           updateNodeView(updatedNode);
