@@ -6,7 +6,7 @@ import { PiForkKnifeLight } from "react-icons/pi";
 import { CiCalendar } from "react-icons/ci";
 import { TfiEmail } from "react-icons/tfi";
 import { IoIosCloseCircleOutline } from "react-icons/io";
-import { FaArrowLeft } from "react-icons/fa6";
+import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear();
@@ -82,9 +82,17 @@ export default function TableReservationClient() {
   const [timeOptions, setTimeOptions] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [isContactInfoOpen, setIsContactInfoOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerSurname, setCustomerSurname] = useState("");
   const [userEmail, setUserEmail] = useState("");
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [contactDraft, setContactDraft] = useState({
+    name: "",
+    surname: "",
+    email: "",
+  });
+  const [contactError, setContactError] = useState("");
   const [sessionError, setSessionError] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -112,11 +120,7 @@ export default function TableReservationClient() {
       .catch((sessionError) => {
         console.error(sessionError);
         if (active) setSessionError(sessionError.message);
-      })
-      .finally(() => {
-        if (active) setIsLoadingSession(false);
       });
-
     return () => {
       active = false;
     };
@@ -250,6 +254,15 @@ export default function TableReservationClient() {
     ) {
       return;
     }
+    if (!customerName.trim() || !customerSurname.trim()) {
+      setError("Indique o nome e o apelido.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail.trim())) {
+      setError("Indique um email válido.");
+      return;
+    }
+
     setIsBooking(true);
     setError("");
 
@@ -263,6 +276,9 @@ export default function TableReservationClient() {
           date,
           start_time: selectedSlot.start_time,
           time_zone: getLocalTimeZone(),
+          customer_name: customerName.trim(),
+          customer_surname: customerSurname.trim(),
+          customer_email: userEmail.trim(),
         }),
       });
       const result = await response.json();
@@ -280,6 +296,35 @@ export default function TableReservationClient() {
     } finally {
       setIsBooking(false);
     }
+  }
+
+  function openContactInfo() {
+    setContactDraft({
+      name: customerName,
+      surname: customerSurname,
+      email: userEmail,
+    });
+    setContactError("");
+    setIsContactInfoOpen(true);
+  }
+
+  function saveContactInfo(event) {
+    event.preventDefault();
+    if (
+      !contactDraft.name.trim() ||
+      !contactDraft.surname.trim() ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactDraft.email.trim())
+    ) {
+      setContactError("Indique o nome, o apelido e um email válido.");
+      return;
+    }
+
+    setCustomerName(contactDraft.name.trim());
+    setCustomerSurname(contactDraft.surname.trim());
+    setUserEmail(contactDraft.email.trim());
+    setContactError("");
+    setIsContactInfoOpen(false);
+    setError("");
   }
 
   const availableSlots = slots.filter(
@@ -508,16 +553,27 @@ export default function TableReservationClient() {
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <p className="font-bold">Contact Info</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <TfiEmail size={20} className="shrink-0" />
-                  <dd className="break-all font-medium">
-                    {isLoadingSession
-                      ? "A carregar..."
-                      : sessionError
-                        ? "Indisponível"
-                        : userEmail || "Sem sessão iniciada"}
-                  </dd>
-                </div>
+                <button
+                  type="button"
+                  onClick={openContactInfo}
+                  className="mt-2 flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-3 text-left transition hover:border-gray-300 hover:bg-gray-50"
+                  aria-label="Editar dados de contacto"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {[customerName, customerSurname]
+                        .filter(Boolean)
+                        .join(" ") || "Adicionar nome e apelido"}
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm text-gray-500">
+                      {userEmail || "Adicionar email"}
+                    </span>
+                  </span>
+                  <FaArrowRight
+                    aria-hidden="true"
+                    className="shrink-0 text-gray-500"
+                  />
+                </button>
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <p className="font-bold">Rules &amp; restrictions</p>
@@ -564,8 +620,7 @@ export default function TableReservationClient() {
                 disabled={
                   !hasSelectedAvailableSlot ||
                   isBooking ||
-                  loading ||
-                  isLoadingSession
+                  loading
                 }
                 className="flex-1 rounded-lg px-4 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
                 style={{ backgroundColor: primaryColor }}
@@ -573,6 +628,113 @@ export default function TableReservationClient() {
                 {isBooking ? "A confirmar..." : "Confirmar"}
               </button>
             </div>
+          </section>
+        </div>
+      )}
+
+      {isContactInfoOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsContactInfoOpen(false);
+              setContactError("");
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-info-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h2 id="contact-info-title" className="text-xl font-semibold">
+              Contact Info
+            </h2>
+            <form onSubmit={saveContactInfo}>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <label className="grid min-w-0 gap-1 text-sm font-medium">
+                  First name
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    maxLength={150}
+                    required
+                    value={contactDraft.name}
+                    onChange={(event) =>
+                      setContactDraft((draft) => ({
+                        ...draft,
+                        name: event.target.value,
+                      }))
+                    }
+                    className="h-10 min-w-0 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-[var(--primary-color)]"
+                    style={{ "--primary-color": primaryColor }}
+                  />
+                </label>
+                <label className="grid min-w-0 gap-1 text-sm font-medium">
+                  Surname
+                  <input
+                    type="text"
+                    autoComplete="family-name"
+                    maxLength={150}
+                    required
+                    value={contactDraft.surname}
+                    onChange={(event) =>
+                      setContactDraft((draft) => ({
+                        ...draft,
+                        surname: event.target.value,
+                      }))
+                    }
+                    className="h-10 min-w-0 rounded-lg border border-gray-300 px-3 font-normal outline-none focus:border-[var(--primary-color)]"
+                    style={{ "--primary-color": primaryColor }}
+                  />
+                </label>
+                <label className="col-span-2 grid gap-1 text-sm font-medium">
+                  Email
+                  <span className="flex h-10 items-center gap-2 rounded-lg border border-gray-300 px-3">
+                    <TfiEmail size={18} className="shrink-0 text-gray-500" />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      maxLength={255}
+                      required
+                      value={contactDraft.email}
+                      onChange={(event) =>
+                        setContactDraft((draft) => ({
+                          ...draft,
+                          email: event.target.value,
+                        }))
+                      }
+                      className="min-w-0 flex-1 font-normal outline-none"
+                    />
+                  </span>
+                </label>
+              </div>
+              {contactError && (
+                <p className="mt-3 text-sm text-red-600" role="alert">
+                  {contactError}
+                </p>
+              )}
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsContactInfoOpen(false);
+                    setContactError("");
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-3 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 rounded-lg px-4 py-3 font-semibold text-white transition"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Guardar
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       )}

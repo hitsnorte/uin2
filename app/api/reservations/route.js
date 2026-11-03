@@ -31,6 +31,14 @@ export async function POST(request) {
   const people = Number(body.pax_size);
   const dateValue = body.date;
   const startTime = body.start_time;
+  const customerName =
+    typeof body.customer_name === "string" ? body.customer_name.trim() : "";
+  const customerSurname =
+    typeof body.customer_surname === "string"
+      ? body.customer_surname.trim()
+      : "";
+  const customerEmail =
+    typeof body.customer_email === "string" ? body.customer_email.trim() : "";
   const timeZone =
     typeof body.time_zone === "string" && body.time_zone
       ? body.time_zone
@@ -44,10 +52,19 @@ export async function POST(request) {
     people > 20 ||
     !isReservationDate(dateValue) ||
     !isValidTime(startTime) ||
+    !customerName ||
+    customerName.length > 150 ||
+    !customerSurname ||
+    customerSurname.length > 150 ||
+    customerEmail.length > 255 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) ||
     !isValidReservationTimeZone(timeZone)
   ) {
     return Response.json(
-      { error: "Indique outlet, data, horário e número de pessoas válidos." },
+      {
+        error:
+          "Indique nome, apelido, email, outlet, data, horário e número de pessoas válidos.",
+      },
       { status: 400 }
     );
   }
@@ -232,6 +249,9 @@ export async function POST(request) {
           end_at: new Date(startAt.getTime() + duration * 60 * 1000),
           duration_minutes: duration,
           source: "online",
+          customer_name: customerName,
+          customer_surname: customerSurname,
+          customer_email: customerEmail,
           ReservationTableAllocations: {
             create: tableCombination.allocations.map((allocation) => ({
               typology_id: BigInt(allocation.typology_id),

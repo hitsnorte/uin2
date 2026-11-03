@@ -46,6 +46,7 @@ export async function GET(request) {
   const outletId = Number(searchParams.get("outlet_id"));
   const dateValue = searchParams.get("date");
   const people = Number(searchParams.get("people") || 2);
+  const view = searchParams.get("view") || "availability";
 
   if (
     !Number.isSafeInteger(outletId) ||
@@ -53,6 +54,7 @@ export async function GET(request) {
     !Number.isSafeInteger(people) ||
     people < 2 ||
     people > 20 ||
+    !["availability", "reservations"].includes(view) ||
     (dateValue && !isReservationDate(dateValue))
   ) {
     return Response.json(
@@ -79,6 +81,93 @@ export async function GET(request) {
         { error: "Este outlet não permite reservas de mesa." },
         { status: 404 }
       );
+    }
+
+    if (view === "reservations" && dateValue) {
+      const startOfDay = new Date(`${dateValue}T00:00:00.000Z`);
+      const startOfNextDay = new Date(startOfDay);
+      startOfNextDay.setUTCDate(startOfNextDay.getUTCDate() + 1);
+      const reservations = await prisma.reservations.findMany({
+        where: {
+          outlet_id: outletId,
+          status: "confirmed",
+          start_at: { gte: startOfDay, lt: startOfNextDay },
+        },
+        select: {
+          reservation_id: true,
+          customer_name: true,
+          customer_surname: true,
+          pax_size: true,
+          start_at: true,
+          typology_id: true,
+          typologies: { select: { name: true, seats: true } },
+          ReservationTableAllocations: {
+            select: {
+              room_id: true,
+              table_count: true,
+              typologies: { select: { name: true, seats: true } },
+            },
+          },
+        },
+        orderBy: { start_at: "asc" },
+      });
+
+      const roomIds = [
+        ...new Set(
+          reservations.flatMap((reservation) =>
+            reservation.ReservationTableAllocations.map(
+              (allocation) => allocation.room_id
+            )
+          ).filter((roomId) => roomId > 0)
+        ),
+      ];
+      const rooms = roomIds.length
+        ? await prisma.accessPointGroups.findMany({
+            where: { access_point_group_id: { in: roomIds } },
+            select: {
+              access_point_group_id: true,
+              access_point_group_name: true,
+            },
+          })
+        : [];
+      const roomNames = new Map(
+        rooms.map((room) => [
+          room.access_point_group_id,
+          room.access_point_group_name,
+        ])
+      );
+
+      return Response.json({
+        date: dateValue,
+        reservations: reservations.map((reservation) => {
+          const allocations = reservation.ReservationTableAllocations.length
+            ? reservation.ReservationTableAllocations
+            : reservation.typologies
+              ? [
+                  {
+                    room_id: 0,
+                    table_count: 1,
+                    typologies: reservation.typologies,
+                  },
+                ]
+              : [];
+
+          return {
+            reservation_id: reservation.reservation_id,
+            name:
+              [reservation.customer_name, reservation.customer_surname]
+                .filter((part) => typeof part === "string" && part.trim())
+                .join(" ") || "Sem nome",
+            time: formatReservationTime(reservation.start_at),
+            pax_size: reservation.pax_size,
+            tables: allocations.map((allocation) => ({
+              count: allocation.table_count,
+              typology: allocation.typologies.name,
+              room: roomNames.get(allocation.room_id) || null,
+            })),
+          };
+        }),
+      });
     }
 
     const typologyIds = outlet.typologies.map(

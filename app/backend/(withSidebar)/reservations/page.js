@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LuUserRound } from "react-icons/lu";
 import Topbar from "@/components/layout/Topbar";
 import { CiUser } from "react-icons/ci";
 
@@ -48,7 +47,9 @@ export default function ReservationsPage() {
   const [datesOutletId, setDatesOutletId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [people, setPeople] = useState(2);
+  const [activeTab, setActiveTab] = useState("availability");
   const [shifts, setShifts] = useState([]);
+  const [reservations, setReservations] = useState([]);
   const [isLoadingOutlets, setIsLoadingOutlets] = useState(true);
   const [isLoadingDates, setIsLoadingDates] = useState(false);
   const [isLoadingShifts, setIsLoadingShifts] = useState(false);
@@ -149,11 +150,16 @@ export default function ReservationsPage() {
     const controller = new AbortController();
     setIsLoadingShifts(true);
     setError("");
+    setShifts([]);
+    setReservations([]);
     const params = new URLSearchParams({
       outlet_id: outletId,
       date: selectedDate,
-      people: String(people),
+      view: activeTab,
     });
+    if (activeTab === "availability") {
+      params.set("people", String(people));
+    }
 
     fetch(`/api/reservations/dashboard?${params}`, {
       cache: "no-store",
@@ -161,6 +167,13 @@ export default function ReservationsPage() {
     })
       .then(readJsonResponse)
       .then((result) => {
+        if (activeTab === "reservations") {
+          if (!Array.isArray(result.reservations)) {
+            throw new TypeError("A API devolveu uma lista de reservas inválida.");
+          }
+          setReservations(result.reservations);
+          return;
+        }
         if (!Array.isArray(result.shifts)) {
           throw new TypeError("A API devolveu uma lista de turnos inválida.");
         }
@@ -174,7 +187,7 @@ export default function ReservationsPage() {
       });
 
     return () => controller.abort();
-  }, [availableDates, datesOutletId, outletId, people, selectedDate]);
+  }, [activeTab, availableDates, datesOutletId, outletId, people, selectedDate]);
 
   return (
     <div className="min-h-full w-full min-w-0">
@@ -228,11 +241,36 @@ export default function ReservationsPage() {
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold text-gray-900">
-              Disponibilidade por turno
+              Reservas
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               Ocupação por mesas em cada turno.
             </p>
+            <div
+              className="mt-3 inline-flex rounded-lg bg-gray-100 p-1"
+              role="tablist"
+              aria-label="Vista das reservas"
+            >
+              {[
+                { id: "availability", label: "Disponibilidade" },
+                { id: "reservations", label: "Reservas" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                    activeTab === tab.id
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -252,22 +290,24 @@ export default function ReservationsPage() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-              Pessoas
-              <select
-                value={people}
-                onChange={(event) => setPeople(Number(event.target.value))}
-                className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-red-500"
-              >
-                {Array.from({ length: 19 }, (_, index) => index + 2).map(
-                  (count) => (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  )
-                )}
-              </select>
-            </label>
+            {activeTab === "availability" && (
+              <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+                Pessoas
+                <select
+                  value={people}
+                  onChange={(event) => setPeople(Number(event.target.value))}
+                  className="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-red-500"
+                >
+                  {Array.from({ length: 19 }, (_, index) => index + 2).map(
+                    (count) => (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+            )}
           </div>
         </div>
 
@@ -285,10 +325,15 @@ export default function ReservationsPage() {
           </p>
         )}
         {isLoadingShifts && (
-          <p className="text-sm text-gray-500">A carregar turnos...</p>
+          <p className="text-sm text-gray-500">
+            {activeTab === "availability"
+              ? "A carregar turnos..."
+              : "A carregar reservas..."}
+          </p>
         )}
         {!isLoadingShifts &&
           !isLoadingDates &&
+          activeTab === "availability" &&
           selectedDate &&
           shifts.length === 0 &&
           !error && (
@@ -297,122 +342,172 @@ export default function ReservationsPage() {
             </p>
           )}
 
-        <div className="grid gap-4">
-          {shifts.map((shift) => (
-            <section
-              key={shift.shift_index}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    {shift.label}
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {shift.start_time}–{shift.end_time}
-                    {shift.peak_time ? ` · pico às ${shift.peak_time}` : ""}
-                  </p>
-                </div>
-                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                  {people} pessoas
-                </span>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="text-lg font-bold text-gray-900">
-                  {shift.occupied} ocupadas
-                </span>
-                <span className="text-gray-400">·</span>
-                <span className="text-sm font-semibold text-emerald-700">
-                  {shift.available} livres
-                </span>
-                <span className="text-sm text-gray-500">
-                  de {shift.total} mesas
-                </span>
-              </div>
-
-              <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"
-                role="progressbar"
-                aria-label={`Ocupação do ${shift.label}`}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={shift.occupancy_percent}
+        {activeTab === "availability" && (
+          <div className="grid gap-4">
+            {shifts.map((shift) => (
+              <section
+                key={shift.shift_index}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
               >
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    shift.occupancy_percent >= 80
-                      ? "bg-red-500"
-                      : shift.occupancy_percent >= 50
-                        ? "bg-amber-500"
-                        : "bg-emerald-500"
-                  }`}
-                  style={{ width: `${shift.occupancy_percent}%` }}
-                />
-              </div>
-              <p className="mt-1 text-right text-xs text-gray-500">
-                {shift.occupancy_percent}% ocupado
-              </p>
-
-              <div className="mt-4">
-                <h3 className="text-sm font-semibold text-gray-800">
-                  Horários disponíveis para {people} pessoas
-                </h3>
-                {shift.slots.length ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {shift.slots.map((slot) => (
-                      <span
-                        key={slot}
-                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-800"
-                      >
-                        {slot}
-                      </span>
-                    ))}
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">
+                      {shift.label}
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {shift.start_time}–{shift.end_time}
+                      {shift.peak_time ? ` · pico às ${shift.peak_time}` : ""}
+                    </p>
                   </div>
-                ) : (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Não existem horários disponíveis para este grupo.
-                  </p>
-                )}
-              </div>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                    {people} pessoas
+                  </span>
+                </div>
 
-              <div className="mt-4 border-t border-gray-100 pt-3">
-                <h3 className="text-sm font-semibold text-gray-800">
-                  Mesas disponíveis por tipologia
-                  {shift.peak_time ? ` · ${shift.peak_time}` : ""}
-                </h3>
-                {shift.typologies.length ? (
-                  <ul className="mt-2 divide-y divide-gray-100">
-                    {shift.typologies.map((typology) => (
-                      <li
-                        key={typology.typology_id}
-                        className="flex items-center justify-between gap-3 py-1.5 text-sm"
-                      >
-                        <span className="inline-flex items-center gap-1.5 text-gray-700">
-                          <CiUser size={20} />
-                          <span>
-                            × {typology.seats ?? "—"}
-                          </span>
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="text-lg font-bold text-gray-900">
+                    {shift.occupied} ocupadas
+                  </span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-sm font-semibold text-emerald-700">
+                    {shift.available} livres
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    de {shift.total} mesas
+                  </span>
+                </div>
+
+                <div
+                  className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100"
+                  role="progressbar"
+                  aria-label={`Ocupação do ${shift.label}`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={shift.occupancy_percent}
+                >
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      shift.occupancy_percent >= 80
+                        ? "bg-red-500"
+                        : shift.occupancy_percent >= 50
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${shift.occupancy_percent}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-right text-xs text-gray-500">
+                  {shift.occupancy_percent}% ocupado
+                </p>
+
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    Horários disponíveis para {people} pessoas
+                  </h3>
+                  {shift.slots.length ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {shift.slots.map((slot) => (
+                        <span
+                          key={slot}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-800"
+                        >
+                          {slot}
                         </span>
-                        <span className="font-semibold text-gray-900">
-                          {typology.available} livres
-                          <span className="font-normal text-gray-500">
-                            {" "}
-                            / {typology.total}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-500">
+                      Não existem horários disponíveis para este grupo.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    Mesas disponíveis por tipologia
+                    {shift.peak_time ? ` · ${shift.peak_time}` : ""}
+                  </h3>
+                  {shift.typologies.length ? (
+                    <ul className="mt-2 divide-y divide-gray-100">
+                      {shift.typologies.map((typology) => (
+                        <li
+                          key={typology.typology_id}
+                          className="flex items-center justify-between gap-3 py-1.5 text-sm"
+                        >
+                          <span className="inline-flex items-center gap-1.5 text-gray-700">
+                            <CiUser size={20} />
+                            <span>× {typology.seats ?? "—"}</span>
                           </span>
+                          <span className="font-semibold text-gray-900">
+                            {typology.available} livres
+                            <span className="font-normal text-gray-500">
+                              {" "}
+                              / {typology.total}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-500">
+                      Não existem tipologias configuradas.
+                    </p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {activeTab === "reservations" && !isLoadingShifts && selectedDate && (
+          <div className="grid gap-3">
+            {reservations.length ? (
+              reservations.map((reservation) => (
+                <section
+                  key={reservation.reservation_id}
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+                    <span className="text-lg font-semibold text-gray-900">
+                      {reservation.time}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="break-words font-bold text-gray-800">
+                        {reservation.name}
+                      </p>
+                      <p className="mt-1 inline-flex items-center gap-1 text-sm text-gray-600">
+                        <CiUser size={18} aria-hidden="true" />
+                        {reservation.pax_size}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {reservation.tables.length ? (
+                      reservation.tables.map((table, index) => (
+                        <span
+                          key={`${reservation.reservation_id}-${index}`}
+                          className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700"
+                        >
+                          {table.count > 1 ? `${table.count} × ` : ""}
+                          {table.typology || "Mesa"}
+                          {table.room ? ` · ${table.room}` : ""}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-2 text-sm text-gray-500">
-                    Não existem tipologias configuradas.
-                  </p>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
+                      ))
+                    ) : (
+                      <span className="text-sm text-gray-500">
+                        Mesa não atribuída
+                      </span>
+                    )}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
+                Não existem reservas para este dia.
+              </p>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
