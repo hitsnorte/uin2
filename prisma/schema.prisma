@@ -461,6 +461,9 @@ model Orders {
   updated_by    String?      @db.VarChar(150)
   quantity      Int          @default(1)
   price         Decimal?     @db.Decimal(10, 2)
+  outlet_id     Int?
+  menu_id       Int?
+  submenu_id    Int?
   OrderStatus   OrderStatus? @relation(fields: [order_status], references: [order_status_id], onDelete: Restrict, map: "fk_orders_order_status")
 
   @@index([order_status], map: "idx_order_status")

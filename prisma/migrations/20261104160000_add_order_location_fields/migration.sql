@@ -1,0 +1,4 @@
+ALTER TABLE `Orders`
+  ADD COLUMN `outlet_id` INTEGER NULL,
+  ADD COLUMN `menu_id` INTEGER NULL,
+  ADD COLUMN `submenu_id` INTEGER NULL;

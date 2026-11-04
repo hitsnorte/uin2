@@ -63,6 +63,55 @@ export async function POST(request) {
       );
     }
 
+    const outletId = Number(body.outletId);
+    const menuId = Number(body.menuId);
+    const submenuId =
+      body.submenuId == null ? null : Number(body.submenuId);
+    if (
+      !Number.isSafeInteger(outletId) ||
+      outletId <= 0 ||
+      !Number.isSafeInteger(menuId) ||
+      menuId <= 0 ||
+      (submenuId !== null &&
+        (!Number.isSafeInteger(submenuId) || submenuId <= 0))
+    ) {
+      return Response.json(
+        { error: "Indique um outlet e menu válidos para o pedido." },
+        { status: 400 }
+      );
+    }
+
+    const menu = await prisma.menus.findUnique({
+      where: { menu_id: menuId },
+      select: { outlet_id: true },
+    });
+    if (!menu || menu.outlet_id !== outletId) {
+      return Response.json(
+        { error: "O menu não pertence ao outlet indicado." },
+        { status: 400 }
+      );
+    }
+
+    if (submenuId !== null) {
+      const submenu = await prisma.submenus.findUnique({
+        where: { submenu_id: submenuId },
+        select: { menu_id: true },
+      });
+      if (!submenu || submenu.menu_id !== menuId) {
+        return Response.json(
+          { error: "O submenu não pertence ao menu indicado." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if ("outlet_id" in item && item.outlet_id !== outletId) {
+      return Response.json(
+        { error: "O produto não pertence ao outlet indicado." },
+        { status: 400 }
+      );
+    }
+
     const status = await prisma.orderStatus.upsert({
       where: { order_status_id: 1 },
       update: {},
@@ -105,6 +154,9 @@ export async function POST(request) {
           order_name: itemName.slice(0, 150),
           customer_name: (user.email || `Utilizador ${user.id}`).slice(0, 150),
           order_status: status.order_status_id,
+          outlet_id: outletId,
+          menu_id: menuId,
+          submenu_id: submenuId,
           quantity,
           price:
             totalPrice === null

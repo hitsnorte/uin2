@@ -388,6 +388,10 @@ export default function OutletPage() {
           ...(selectedProduct.outlet_item_id
             ? { outletItemId: selectedProduct.outlet_item_id }
             : { productId: selectedProduct.item_id }),
+          outletId: contentOutletId,
+          menuId: contentItem?.menu_id,
+          submenuId:
+            contentType === "submenu" ? contentItem?.submenu_id : null,
           quantity: orderQuantity,
         }),
       });
