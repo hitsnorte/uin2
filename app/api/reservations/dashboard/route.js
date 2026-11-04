@@ -41,6 +41,38 @@ function getSlotCapacity(rows) {
   );
 }
 
+function getRequiredTimeCapacity(rows, requiredTimes) {
+  const rowsByRoomTypeTime = new Map();
+  const rowsByRoomType = new Map();
+
+  for (const row of rows) {
+    const roomTypeKey = `${row.room_id}:${row.typology_id}`;
+    const timeKey = `${roomTypeKey}:${formatReservationTime(row.start_time)}`;
+    rowsByRoomTypeTime.set(timeKey, row);
+    const groupRows = rowsByRoomType.get(roomTypeKey) || [];
+    groupRows.push(row);
+    rowsByRoomType.set(roomTypeKey, groupRows);
+  }
+
+  return [...rowsByRoomType.entries()].reduce(
+    (capacity, [roomTypeKey, groupRows]) => {
+      const total = Math.max(...groupRows.map((row) => row.total_capacity));
+      const available = Math.min(
+        ...requiredTimes.map((time) => {
+          const key = `${roomTypeKey}:${formatReservationTime(time)}`;
+          return rowsByRoomTypeTime.get(key)?.available_capacity ?? 0;
+        })
+      );
+
+      return {
+        total: capacity.total + total,
+        available: capacity.available + Math.min(total, available),
+      };
+    },
+    { total: 0, available: 0 }
+  );
+}
+
 export async function GET(request) {
   const searchParams = new URL(request.url).searchParams;
   const outletId = Number(searchParams.get("outlet_id"));
@@ -276,11 +308,14 @@ export async function GET(request) {
             shiftIndex
         );
         let peak = null;
+        const shiftCapacity = { total: 0, available: 0 };
         for (const startTime of shiftStarts) {
           const startRows = rowsByStart.get(startTime) || [];
           if (!startRows.length) continue;
 
           const capacity = getSlotCapacity(startRows);
+          shiftCapacity.total += capacity.total;
+          shiftCapacity.available += capacity.available;
           const occupied = capacity.total - capacity.available;
           const occupancyPercent = capacity.total
             ? Math.round((occupied / capacity.total) * 100)
@@ -308,6 +343,11 @@ export async function GET(request) {
           const duration = Number(shiftItems[0].item_duration);
           if (Number.isSafeInteger(duration) && duration > 0) {
             for (const startTime of shiftStarts) {
+              const startMinutes = parseReservationTime(startTime);
+              if (startMinutes === null || startMinutes + duration > end) {
+                continue;
+              }
+
               const requiredTimes = getRequiredSlotTimes(
                 startTime,
                 duration,
@@ -322,10 +362,48 @@ export async function GET(request) {
                 people,
                 allowCombination: outlet.combine_tables,
               });
-              if (tableCombination) slots.push(startTime);
+              const capacity = getRequiredTimeCapacity(rows, requiredTimes);
+              const typologyAvailability = outlet.typologies.map((typology) => {
+                const typologyCapacity = getRequiredTimeCapacity(
+                  rows.filter(
+                    (row) => row.typology_id === typology.typology_id
+                  ),
+                  requiredTimes
+                );
+                return {
+                  typology_id: typology.typology_id.toString(),
+                  name: typology.name,
+                  seats: typology.seats,
+                  total: typologyCapacity.total,
+                  available: typologyCapacity.available,
+                  occupied:
+                    typologyCapacity.total - typologyCapacity.available,
+                };
+              });
+              slots.push({
+                time: startTime,
+                bookable: Boolean(tableCombination),
+                total: capacity.total,
+                available: capacity.available,
+                occupied: capacity.total - capacity.available,
+                occupancy_percent: capacity.total
+                  ? Math.round(
+                      ((capacity.total - capacity.available) /
+                        capacity.total) *
+                        100
+                    )
+                  : 0,
+                typologies: typologyAvailability,
+              });
             }
           }
         }
+
+        const shiftOccupied =
+          shiftCapacity.total - shiftCapacity.available;
+        const shiftOccupancyPercent = shiftCapacity.total
+          ? Math.round((shiftOccupied / shiftCapacity.total) * 100)
+          : 0;
 
         const typologyAvailability = peak
           ? outlet.typologies.map((typology) => {
@@ -363,7 +441,7 @@ export async function GET(request) {
           total: peak?.total || 0,
           occupied: peak?.occupied || 0,
           available: peak?.available || 0,
-          occupancy_percent: peak?.occupancy_percent || 0,
+          occupancy_percent: shiftOccupancyPercent,
           slots,
           typologies: typologyAvailability,
         };
