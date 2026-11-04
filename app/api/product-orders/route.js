@@ -99,18 +99,30 @@ export async function POST(request) {
         { status: 400 }
       );
     }
-    const order = await prisma.orders.create({
-      data: {
-        order_name: itemName.slice(0, 150),
-        customer_name: (user.email || `Utilizador ${user.id}`).slice(0, 150),
-        order_status: status.order_status_id,
-        quantity,
-        price:
-          totalPrice === null
-            ? null
-            : new Prisma.Decimal(totalPrice.toFixed(2)),
-      },
-      select: { order_id: true, price: true },
+    const order = await prisma.$transaction(async (transaction) => {
+      const createdOrder = await transaction.orders.create({
+        data: {
+          order_name: itemName.slice(0, 150),
+          customer_name: (user.email || `Utilizador ${user.id}`).slice(0, 150),
+          order_status: status.order_status_id,
+          quantity,
+          price:
+            totalPrice === null
+              ? null
+              : new Prisma.Decimal(totalPrice.toFixed(2)),
+        },
+        select: { order_id: true, price: true },
+      });
+
+      await transaction.notifications.create({
+        data: {
+          user_id: user.id,
+          title: "Pedido registado com sucesso",
+          message: `O seu pedido #${createdOrder.order_id} de ${quantity}x ${itemName} foi registado com sucesso.`,
+        },
+      });
+
+      return createdOrder;
     });
 
     let notificationWarning = null;
