@@ -588,7 +588,9 @@ export default function OutletPage() {
               </section>
             )}
             <section className="outlet-content-container">
-              <div className="outlet-content-body">
+              <div
+                className={`outlet-content-body${content?.squareImages ? " is-square-images" : ""}`}
+              >
                 {contentError ? (
                   <p role="alert" className="text-center text-red-600">
                     {contentError}

@@ -258,6 +258,10 @@
   vertical-align: top;
 }
 
+.outlet-content-body.is-square-images .ProseMirror img {
+  border-radius: 0;
+}
+
 .outlet-content-body .ProseMirror > p > img {
   display: inline-block;
 }

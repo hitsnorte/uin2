@@ -360,6 +360,9 @@ export default function Editor({
   previewItems = [],
 }) {
   const [selectedPos, setSelectedPos] = useState(null);
+  const [squareImages, setSquareImages] = useState(() =>
+    Boolean(value && typeof value === "object" && value.squareImages)
+  );
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
   const [bannerModalOpen, setBannerModalOpen] = useState(false);
   const [bannerFile, setBannerFile] = useState(null);
@@ -393,12 +396,18 @@ export default function Editor({
   const [isLoadingProductEdit, setIsLoadingProductEdit] = useState(false);
   const bannerUrlRef = useRef(bannerUrl);
   const bannerFileInputRef = useRef(null);
+  const squareImagesRef = useRef(squareImages);
 
   useEffect(() => {
     const nextBannerUrl =
       value && typeof value === "object" ? value.banner_url || "" : "";
     bannerUrlRef.current = nextBannerUrl;
     setBannerUrl(nextBannerUrl);
+    const nextSquareImages = Boolean(
+      value && typeof value === "object" && value.squareImages
+    );
+    squareImagesRef.current = nextSquareImages;
+    setSquareImages(nextSquareImages);
   }, [value]);
 
   useEffect(() => {
@@ -631,6 +640,7 @@ export default function Editor({
         editor: editor.getJSON(),
         selectedProducts: productNodes.map((node) => node.attrs.productId),
         banner_url: bannerUrlRef.current,
+        squareImages: squareImagesRef.current,
       });
     },
   });
@@ -698,6 +708,7 @@ export default function Editor({
           (node) => node.attrs.productId
         ),
         banner_url: bannerUrlRef.current,
+        squareImages: squareImagesRef.current,
       });
     });
 
@@ -832,6 +843,7 @@ export default function Editor({
           .filter((node) => node.type.name === "product")
           .map((node) => node.attrs.productId),
         banner_url: data.url,
+        squareImages: squareImagesRef.current,
       });
       setBannerFile(null);
       setBannerModalOpen(false);
@@ -858,6 +870,7 @@ export default function Editor({
         .filter((node) => node.type.name === "product")
         .map((node) => node.attrs.productId),
       banner_url: "",
+      squareImages: squareImagesRef.current,
     });
   }
 
@@ -1109,7 +1122,9 @@ export default function Editor({
   const editorHtml = editor.getHTML();
 
   return (
-    <div className="content-editor relative flex h-full flex-col overflow-hidden bg-white">
+    <div
+      className={`content-editor relative flex h-full flex-col overflow-hidden bg-white${squareImages ? " is-square-images" : ""}`}
+    >
       {/* TOOLBAR */}
       <div className="sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-2">
         <button
@@ -1181,6 +1196,29 @@ export default function Editor({
         >
           <FiAlignJustify aria-hidden="true" />
         </button>
+
+        <label className="flex items-center gap-2 px-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={squareImages}
+            onChange={(event) => {
+              const nextSquareImages = event.target.checked;
+              squareImagesRef.current = nextSquareImages;
+              setSquareImages(nextSquareImages);
+              onChange?.({
+                editor: editor.getJSON(),
+                selectedProducts: editor.state.doc.content.content
+                  .filter((node) => node.type.name === "product")
+                  .map((node) => node.attrs.productId),
+                banner_url: bannerUrlRef.current,
+                squareImages: nextSquareImages,
+              });
+            }}
+            aria-label="Imagens quadradas"
+            className="h-4 w-4 accent-blue-600"
+          />
+          Imagens quadradas
+        </label>
 
         <input
           type="file"
@@ -1268,7 +1306,9 @@ export default function Editor({
             </div>
 
             <div className="content-preview-viewport min-h-0 flex-1 overflow-auto">
-              <div className="content-preview-page">
+              <div
+                className={`content-preview-page${squareImages ? " is-square-images" : ""}`}
+              >
                 <header className="content-preview-toolbar">
                   <span className="content-preview-back" aria-hidden="true">
                     ‹

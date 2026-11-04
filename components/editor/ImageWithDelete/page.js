@@ -117,7 +117,6 @@ const ImageWithDelete = ContentImage.extend({
       img.style.width = "100%";
       img.style.maxWidth = "100%";
       img.style.height = "auto";
-      img.style.borderRadius = "8px";
       img.style.display = "block";
 
       const dimensions = document.createElement("span");
