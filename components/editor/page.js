@@ -919,6 +919,7 @@ export default function Editor({
         takeaway_order: item.takeaway_order,
         cart: item.cart,
         order: item.order,
+        sendStaychat: item.sendStaychat,
         checkin: item.checkin,
       }),
       }

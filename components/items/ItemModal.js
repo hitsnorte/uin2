@@ -26,6 +26,7 @@ export default function ItemModal({
     takeaway_order: isEnabled(item.takeaway_order),
     cart: isEnabled(item.cart),
     order: isEnabled(item.order),
+    sendStaychat: isEnabled(item.sendStaychat),
     checkin: isEnabled(item.checkin),
     shift_index: String(
       shiftOptions.some((shift) => shift.shift_index === initialShiftIndex)
@@ -41,6 +42,7 @@ export default function ItemModal({
     setForm((currentForm) => ({
       ...currentForm,
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "order" && !checked ? { sendStaychat: false } : {}),
     }));
   }
 
@@ -108,6 +110,7 @@ export default function ItemModal({
                 takeaway_order: form.takeaway_order,
                 cart: form.cart,
                 order: form.order,
+                sendStaychat: form.order && form.sendStaychat,
                 checkin: form.checkin,
               }
             : {}),
@@ -120,6 +123,7 @@ export default function ItemModal({
                       takeaway_order: form.takeaway_order,
                       cart: form.cart,
                       order: form.order,
+                      sendStaychat: form.order && form.sendStaychat,
                       checkin: form.checkin,
                     }
                   : {}),
@@ -328,6 +332,19 @@ export default function ItemModal({
                 ))}
               </div>
             </fieldset>
+          )}
+          {(isProduct || reservationAssignment) && form.order && (
+            <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                name="sendStaychat"
+                checked={form.sendStaychat}
+                onChange={handleChange}
+                disabled={isSaving}
+                className="mt-0.5 h-4 w-4 accent-red-500"
+              />
+              <span>Enviar notificações de pedidos para o Staychat</span>
+            </label>
           )}
         </div>
 

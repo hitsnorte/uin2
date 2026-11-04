@@ -62,7 +62,13 @@ export async function PATCH(request, context) {
         );
       }
 
-      for (const field of ["takeaway_order", "cart", "order", "checkin"]) {
+      for (const field of [
+        "takeaway_order",
+        "cart",
+        "order",
+        "sendStaychat",
+        "checkin",
+      ]) {
         if (
           Object.hasOwn(body, field) &&
           ![true, false, 1, 0, "1", "0"].includes(body[field])
@@ -82,6 +88,8 @@ export async function PATCH(request, context) {
         takeaway_order: isEnabled(body.takeaway_order),
         cart: isEnabled(body.cart),
         order: isEnabled(body.order),
+        sendStaychat:
+          isEnabled(body.order) && isEnabled(body.sendStaychat) ? "1" : "0",
         checkin: isEnabled(body.checkin) ? "1" : "0",
       });
 
@@ -147,6 +155,16 @@ export async function PATCH(request, context) {
       );
     }
 
+    if (
+      Object.hasOwn(body, "sendStaychat") &&
+      ![true, false, 1, 0, "1", "0"].includes(body.sendStaychat)
+    ) {
+      return Response.json(
+        { error: "O campo sendStaychat deve ser booleano." },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.outletItems.update({
       where: { outlet_item_id: id },
       data: {
@@ -159,6 +177,8 @@ export async function PATCH(request, context) {
         takeaway_order: isEnabled(body.takeaway_order),
         cart: isEnabled(body.cart),
         order: isEnabled(body.order),
+        sendStaychat:
+          isEnabled(body.order) && isEnabled(body.sendStaychat) ? "1" : "0",
         checkin: isEnabled(body.checkin) ? "1" : "0",
       },
     });
