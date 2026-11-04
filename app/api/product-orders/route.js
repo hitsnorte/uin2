@@ -114,47 +114,61 @@ export async function POST(request) {
     });
 
     let notificationWarning = null;
-    if (item.sendStaychat === "1" && item.staychatWebhook) {
+    if (item.sendStaychat === "1") {
       try {
-        const webhookResponse = await fetch(item.staychatWebhook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            object: "whatsapp_business_account",
-            entry: [
-              {
-                changes: [
-                  {
-                    value: {
-                      messages: [
-                        {
-                          from: "351912906080",
-                          id: `item-order-${order.order_id}-${Date.now()}`,
-                          timestamp: String(Math.floor(Date.now() / 1000)),
-                          type: "text",
-                          text: {
-                            body: `Pedido: ${quantity}x ${itemName}${
-                              totalPrice === null
-                                ? ""
-                                : ` - ${totalPrice.toFixed(2)} €`
-                            }`,
-                          },
-                        },
-                      ],
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
+        const chatbotSettings = await prisma.chatbotsStay.findUnique({
+          where: { propertyID: 1 },
+          select: { staychatWebhook: true },
         });
+        const webhookUrl = chatbotSettings?.staychatWebhook?.trim();
 
-        if (!webhookResponse.ok) {
+        if (!webhookUrl) {
           console.error(
-            `Webhook rejeitou a notificação do pedido ${order.order_id} (${webhookResponse.status}).`
+            `O item está configurado para notificar o Staychat, mas não existe webhook configurado (pedido ${order.order_id}).`
           );
           notificationWarning =
-            " O pedido ficou registado, mas não foi possível notificar o estabelecimento.";
+            " O pedido ficou registado, mas o webhook do Staychat não está configurado.";
+        } else {
+          const webhookResponse = await fetch(webhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              object: "whatsapp_business_account",
+              entry: [
+                {
+                  changes: [
+                    {
+                      value: {
+                        messages: [
+                          {
+                            from: "351912906080",
+                            id: `item-order-${order.order_id}-${Date.now()}`,
+                            timestamp: String(Math.floor(Date.now() / 1000)),
+                            type: "text",
+                            text: {
+                              body: `Pedido: ${quantity}x ${itemName}${
+                                totalPrice === null
+                                  ? ""
+                                  : ` - ${totalPrice.toFixed(2)} €`
+                              }`,
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            }),
+          });
+
+          if (!webhookResponse.ok) {
+            console.error(
+              `Webhook rejeitou a notificação do pedido ${order.order_id} (${webhookResponse.status}).`
+            );
+            notificationWarning =
+              " O pedido ficou registado, mas não foi possível notificar o estabelecimento.";
+          }
         }
       } catch (error) {
         console.error(

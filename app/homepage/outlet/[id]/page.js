@@ -403,7 +403,9 @@ export default function OutletPage() {
       }
 
       setOrderSucceeded(true);
-      setOrderMessage("Pedido efetuado com sucesso.");
+      setOrderMessage(
+        `Pedido efetuado com sucesso.${result?.notificationWarning || ""}`
+      );
     } catch (error) {
       console.error("Não foi possível enviar o pedido", error);
       setOrderMessage(error.message || "Não foi possível enviar o pedido.");
