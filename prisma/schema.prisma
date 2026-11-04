@@ -137,20 +137,14 @@ model Users_FO {
 }
 
 model chatbotsStay {
-  propertyID         Int      @id
-  active             Boolean  @default(false)
-  provider           String?  @db.Text
-  hijiffyToken       String?  @db.Text
-  hijiffyCampaign    String?  @db.Text
-  whatsappToken      String?  @db.Text
-  whatsappPhoneID    String?  @db.Text
-  preCheckinEnabled  Boolean? @default(false)
-  checkinEnabled     Boolean? @default(false)
-  checkinDelay       Int?     @default(0)
-  preCheckoutEnabled Boolean? @default(false)
-  preCheckoutDelay   Int?     @default(0)
-  checkoutEnabled    Boolean? @default(false)
-  checkoutDelay      Int?     @default(0)
+  propertyID      Int     @id
+  active          Boolean @default(false)
+  provider        String? @db.Text
+  hijiffyToken    String? @db.Text
+  hijiffyCampaign String? @db.Text
+  staychatToken   String? @db.Text
+  staychatPhoneID String? @db.Text
+  staychatWebhook String? @db.VarChar(150)
 }
 
 model myStayDetails {
@@ -462,11 +456,11 @@ model Orders {
   order_name    String?      @db.VarChar(150)
   customer_name String?      @db.VarChar(150)
   order_status  Int?
-  quantity      Int          @default(1)
-  price         Decimal?     @db.Decimal(10, 2)
   created_at    DateTime     @default(now()) @db.Timestamp(0)
   updated_at    DateTime     @default(now()) @db.Timestamp(0)
   updated_by    String?      @db.VarChar(150)
+  quantity      Int          @default(1)
+  price         Decimal?     @db.Decimal(10, 2)
   OrderStatus   OrderStatus? @relation(fields: [order_status], references: [order_status_id], onDelete: Restrict, map: "fk_orders_order_status")
 
   @@index([order_status], map: "idx_order_status")

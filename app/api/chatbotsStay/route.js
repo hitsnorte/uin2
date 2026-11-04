@@ -1,39 +1,23 @@
 import { prisma } from "@/lib/prisma";
 
-const providers = ["Hijiffy", "Whatsapp"];
-
-function parsePropertyId(value) {
-  const propertyID = Number(value);
-
-  return Number.isInteger(propertyID) && propertyID > 0
-    ? propertyID
-    : null;
-}
+const providers = ["Hijiffy", "Staychat"];
+const PROPERTY_ID = 1;
 
 function parseBoolean(value) {
   return value === true || value === "true" || value === "on";
 }
 
-function parseDelay(value) {
-  const delay = Number(value);
-
-  return Number.isInteger(delay) && delay >= 0 ? delay : 0;
-}
-
-function serializeSettings(settings) {
-  return {
-    ...settings,
-    propertyID: settings.propertyID,
-  };
+function parseText(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function GET() {
   try {
-    const settings = await prisma.chatbotsStay.findFirst({
-      orderBy: { propertyID: "asc" },
+    const settings = await prisma.chatbotsStay.findUnique({
+      where: { propertyID: PROPERTY_ID },
     });
 
-    return Response.json(settings ? serializeSettings(settings) : null);
+    return Response.json(settings);
   } catch (error) {
     console.error("Erro ao obter configuração dos chatbots:", error);
 
@@ -47,12 +31,44 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const propertyID = parsePropertyId(body.propertyID);
-    const provider = String(body.provider || "").trim();
+    const provider = parseText(body?.provider);
 
-    if (!propertyID || !providers.includes(provider)) {
+    if (!providers.includes(provider)) {
       return Response.json(
-        { error: "Indique uma propertyID válida e um provider válido." },
+        { error: "Indique um provider válido." },
+        { status: 400 }
+      );
+    }
+
+    const hijiffyToken =
+      provider === "Hijiffy" ? parseText(body.hijiffyToken) : null;
+    const hijiffyCampaign =
+      provider === "Hijiffy" ? parseText(body.hijiffyCampaign) : null;
+    const staychatToken =
+      provider === "Staychat" ? parseText(body.staychatToken) : null;
+    const staychatPhoneID =
+      provider === "Staychat" ? parseText(body.staychatPhoneID) : null;
+    const staychatWebhook =
+      provider === "Staychat" ? parseText(body.staychatWebhook) || null : null;
+
+    if (
+      (provider === "Hijiffy" && (!hijiffyToken || !hijiffyCampaign)) ||
+      (provider === "Staychat" && (!staychatToken || !staychatPhoneID))
+    ) {
+      return Response.json(
+        {
+          error:
+            provider === "Hijiffy"
+              ? "Indique o token e a campanha Hijiffy."
+              : "Indique o token e o phone ID do Staychat.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (staychatWebhook && staychatWebhook.length > 150) {
+      return Response.json(
+        { error: "O webhook do Staychat não pode exceder 150 caracteres." },
         { status: 400 }
       );
     }
@@ -60,41 +76,20 @@ export async function POST(request) {
     const data = {
       active: parseBoolean(body.active),
       provider,
-      hijiffyToken:
-        provider === "Hijiffy" ? String(body.hijiffyToken || "").trim() : null,
-      hijiffyCampaign:
-        provider === "Hijiffy"
-          ? String(body.hijiffyCampaign || "").trim()
-          : null,
-      whatsappToken:
-        provider === "Whatsapp" ? String(body.whatsappToken || "").trim() : null,
-      whatsappPhoneID:
-        provider === "Whatsapp"
-          ? String(body.whatsappPhoneID || "").trim()
-          : null,
-      preCheckinEnabled:
-        provider === "Whatsapp" && parseBoolean(body.preCheckinEnabled),
-      checkinEnabled:
-        provider === "Whatsapp" && parseBoolean(body.checkinEnabled),
-      checkinDelay:
-        provider === "Whatsapp" ? parseDelay(body.checkinDelay) : 0,
-      preCheckoutEnabled:
-        provider === "Whatsapp" && parseBoolean(body.preCheckoutEnabled),
-      preCheckoutDelay:
-        provider === "Whatsapp" ? parseDelay(body.preCheckoutDelay) : 0,
-      checkoutEnabled:
-        provider === "Whatsapp" && parseBoolean(body.checkoutEnabled),
-      checkoutDelay:
-        provider === "Whatsapp" ? parseDelay(body.checkoutDelay) : 0,
+      hijiffyToken,
+      hijiffyCampaign,
+      staychatToken,
+      staychatPhoneID,
+      staychatWebhook,
     };
 
     const settings = await prisma.chatbotsStay.upsert({
-      where: { propertyID },
+      where: { propertyID: PROPERTY_ID },
       update: data,
-      create: { propertyID, ...data },
+      create: { propertyID: PROPERTY_ID, ...data },
     });
 
-    return Response.json(serializeSettings(settings));
+    return Response.json(settings);
   } catch (error) {
     console.error("Erro ao guardar configuração dos chatbots:", error);
 

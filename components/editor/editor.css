@@ -31,6 +31,11 @@
   max-width: 100%;
 }
 
+.content-editor.is-square-images .ProseMirror img,
+.content-preview-page.is-square-images .content-preview-body.ProseMirror img {
+  border-radius: 0;
+}
+
 .content-editor .ProseMirror .editor-image-node {
   display: inline-block;
   margin: 12px 8px;
@@ -111,6 +116,7 @@
 }
 
 .editor-image-delete,
+.editor-image-edit,
 .editor-image-resize {
   position: absolute;
   display: none;
@@ -120,6 +126,29 @@
   color: #fff;
   background: rgb(17 24 39 / 80%);
   cursor: pointer;
+}
+
+.editor-image-dimensions {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: none;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgb(17 24 39 / 80%);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.editor-image-edit {
+  top: 8px;
+  left: 8px;
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .editor-image-delete {
@@ -149,8 +178,12 @@
 }
 
 .editor-image-node:hover .editor-image-delete,
+.editor-image-node:hover .editor-image-edit,
+.editor-image-node:hover .editor-image-dimensions,
 .editor-image-node:hover .editor-image-resize,
 .editor-image-node:focus-within .editor-image-delete,
+.editor-image-node:focus-within .editor-image-edit,
+.editor-image-node:focus-within .editor-image-dimensions,
 .editor-image-node:focus-within .editor-image-resize {
   display: inline-flex;
 }

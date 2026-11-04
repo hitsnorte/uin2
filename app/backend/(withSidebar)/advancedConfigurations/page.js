@@ -33,21 +33,26 @@ const emptySettings = {
 };
 
 const emptyChatbotSettings = {
-  propertyID: "",
   active: true,
   provider: "Hijiffy",
   hijiffyToken: "",
   hijiffyCampaign: "",
-  whatsappToken: "",
-  whatsappPhoneID: "",
-  preCheckinEnabled: false,
-  checkinEnabled: false,
-  checkinDelay: "0",
-  preCheckoutEnabled: false,
-  preCheckoutDelay: "0",
-  checkoutEnabled: false,
-  checkoutDelay: "0",
+  staychatToken: "",
+  staychatPhoneID: "",
+  staychatWebhook: "",
 };
+
+function toChatbotFormSettings(settings) {
+  return {
+    active: settings.active ?? emptyChatbotSettings.active,
+    provider: settings.provider || emptyChatbotSettings.provider,
+    hijiffyToken: settings.hijiffyToken || "",
+    hijiffyCampaign: settings.hijiffyCampaign || "",
+    staychatToken: settings.staychatToken || "",
+    staychatPhoneID: settings.staychatPhoneID || "",
+    staychatWebhook: settings.staychatWebhook || "",
+  };
+}
 
 export default function AdvancedConfigurationsPage() {
   const [settings, setSettings] = useState(emptySettings);
@@ -89,15 +94,7 @@ export default function AdvancedConfigurationsPage() {
         setTemplates(Array.isArray(templatesData) ? templatesData : []);
 
         if (chatbotData) {
-          setChatbotSettings({
-            ...emptyChatbotSettings,
-            ...chatbotData,
-            propertyID: String(chatbotData.propertyID || ""),
-            checkinDelay: String(chatbotData.checkinDelay || 0),
-            preCheckinDelay: String(chatbotData.preCheckinDelay || 0),
-            preCheckoutDelay: String(chatbotData.preCheckoutDelay || 0),
-            checkoutDelay: String(chatbotData.checkoutDelay || 0),
-          });
+          setChatbotSettings(toChatbotFormSettings(chatbotData));
         }
       } catch (error) {
         setMessageType("error");
@@ -254,15 +251,7 @@ export default function AdvancedConfigurationsPage() {
         throw new Error(data.error || "Não foi possível guardar a configuração dos chatbots.");
       }
 
-      setChatbotSettings((current) => ({
-        ...current,
-        ...data,
-        propertyID: String(data.propertyID),
-        checkinDelay: String(data.checkinDelay || 0),
-        preCheckinDelay: String(data.preCheckinDelay || 0),
-        preCheckoutDelay: String(data.preCheckoutDelay || 0),
-        checkoutDelay: String(data.checkoutDelay || 0),
-      }));
+      setChatbotSettings(toChatbotFormSettings(data));
       setMessageType("success");
       setMessage("Configuração dos chatbots guardada com sucesso.");
     } catch (error) {
@@ -453,29 +442,19 @@ export default function AdvancedConfigurationsPage() {
         <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm mt-3">
           <SectionTitle
             title="Configuração dos chatbots"
-            description="Escolha o provider e configure os dados usados pela aplicação."
+            description="Escolha o provider e preencha as respetivas credenciais de integração."
           />
 
           <form
             onSubmit={saveChatbotSettings}
             className="mt-5 grid gap-4 md:grid-cols-2"
           >
-            {/* <Field
-              label="Property ID"
-              name="propertyID"
-              type="number"
-              value={chatbotSettings.propertyID}
-              onChange={updateChatbotSettings}
-              min="1"
-              required
-            /> */}
-
             <SelectField
               label="Provider"
               name="provider"
               value={chatbotSettings.provider}
               onChange={updateChatbotSettings}
-              options={["Hijiffy", "Whatsapp"]}
+              options={["Hijiffy", "Staychat"]}
             />
 
             <CheckboxField
@@ -505,51 +484,26 @@ export default function AdvancedConfigurationsPage() {
             ) : (
               <>
                 <Field
-                  label="Whatsapp token"
-                  name="whatsappToken"
-                  value={chatbotSettings.whatsappToken}
+                  label="Staychat token"
+                  name="staychatToken"
+                  value={chatbotSettings.staychatToken}
                   onChange={updateChatbotSettings}
                   required
                 />
                 <Field
-                  label="Whatsapp phone ID"
-                  name="whatsappPhoneID"
-                  value={chatbotSettings.whatsappPhoneID}
+                  label="Staychat phone ID"
+                  name="staychatPhoneID"
+                  value={chatbotSettings.staychatPhoneID}
                   onChange={updateChatbotSettings}
                   required
                 />
-
-                <WhatsappToggle
-                  label="Pré check-in"
-                  enabledName="preCheckinEnabled"
-                  delayName="preCheckinDelay"
-                  enabled={chatbotSettings.preCheckinEnabled}
-                  delay={chatbotSettings.preCheckinDelay}
+                <Field
+                  label="Staychat Webhook"
+                  name="staychatWebhook"
+                  value={chatbotSettings.staychatWebhook}
                   onChange={updateChatbotSettings}
-                />
-                <WhatsappToggle
-                  label="Check-in"
-                  enabledName="checkinEnabled"
-                  delayName="checkinDelay"
-                  enabled={chatbotSettings.checkinEnabled}
-                  delay={chatbotSettings.checkinDelay}
-                  onChange={updateChatbotSettings}
-                />
-                <WhatsappToggle
-                  label="Pré check-out"
-                  enabledName="preCheckoutEnabled"
-                  delayName="preCheckoutDelay"
-                  enabled={chatbotSettings.preCheckoutEnabled}
-                  delay={chatbotSettings.preCheckoutDelay}
-                  onChange={updateChatbotSettings}
-                />
-                <WhatsappToggle
-                  label="Check-out"
-                  enabledName="checkoutEnabled"
-                  delayName="checkoutDelay"
-                  enabled={chatbotSettings.checkoutEnabled}
-                  delay={chatbotSettings.checkoutDelay}
-                  onChange={updateChatbotSettings}
+                  maxLength={150}
+                  placeholder="URL do webhook"
                 />
               </>
             )}
@@ -662,34 +616,5 @@ function CheckboxField({ label, name, checked, onChange }) {
       />
       {label}
     </label>
-  );
-}
-
-function WhatsappToggle({
-  label,
-  enabledName,
-  delayName,
-  enabled,
-  delay,
-  onChange,
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-[1fr_140px] sm:items-end">
-      <CheckboxField
-        label={`${label} ativo`}
-        name={enabledName}
-        checked={enabled}
-        onChange={onChange}
-      />
-      <Field
-        label="Delay (minutos)"
-        name={delayName}
-        type="number"
-        value={delay}
-        onChange={onChange}
-        min="0"
-        required
-      />
-    </div>
   );
 }

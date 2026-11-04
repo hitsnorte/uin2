@@ -360,11 +360,15 @@ export default function Editor({
   previewItems = [],
 }) {
   const [selectedPos, setSelectedPos] = useState(null);
+  const [squareImages, setSquareImages] = useState(() =>
+    Boolean(value && typeof value === "object" && value.squareImages)
+  );
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0 });
   const [bannerModalOpen, setBannerModalOpen] = useState(false);
   const [bannerFile, setBannerFile] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [imageWidthDraft, setImageWidthDraft] = useState("");
+  const [imageSizeModal, setImageSizeModal] = useState(null);
   const [bannerUrl, setBannerUrl] = useState(
     value && typeof value === "object" ? value.banner_url || "" : ""
   );
@@ -392,12 +396,18 @@ export default function Editor({
   const [isLoadingProductEdit, setIsLoadingProductEdit] = useState(false);
   const bannerUrlRef = useRef(bannerUrl);
   const bannerFileInputRef = useRef(null);
+  const squareImagesRef = useRef(squareImages);
 
   useEffect(() => {
     const nextBannerUrl =
       value && typeof value === "object" ? value.banner_url || "" : "";
     bannerUrlRef.current = nextBannerUrl;
     setBannerUrl(nextBannerUrl);
+    const nextSquareImages = Boolean(
+      value && typeof value === "object" && value.squareImages
+    );
+    squareImagesRef.current = nextSquareImages;
+    setSquareImages(nextSquareImages);
   }, [value]);
 
   useEffect(() => {
@@ -585,7 +595,22 @@ export default function Editor({
       BulletList,
       OrderedList,
       ListItem,
-      ImageWithDelete.configure({ inline: true }),
+      ImageWithDelete.configure({
+        inline: true,
+        onImageEdit: (position, dimensions) =>
+          setImageSizeModal(() => {
+            const width = dimensions.width || "";
+            const height = dimensions.height || "";
+            const ratio = width && height ? width / height : 1;
+            return {
+              position,
+              width: String(width),
+              height: String(height),
+              keepRatio: true,
+              ratio: Number.isFinite(ratio) && ratio > 0 ? ratio : 1,
+            };
+          }),
+      }),
       TextAlign,
       Underline,
       ProductNode.configure({
@@ -615,6 +640,7 @@ export default function Editor({
         editor: editor.getJSON(),
         selectedProducts: productNodes.map((node) => node.attrs.productId),
         banner_url: bannerUrlRef.current,
+        squareImages: squareImagesRef.current,
       });
     },
   });
@@ -682,6 +708,7 @@ export default function Editor({
           (node) => node.attrs.productId
         ),
         banner_url: bannerUrlRef.current,
+        squareImages: squareImagesRef.current,
       });
     });
 
@@ -735,6 +762,38 @@ export default function Editor({
     editor.view.dispatch(transaction);
   }
 
+  function saveImageDimensions() {
+    if (!imageSizeModal) return;
+
+    const width = Number(imageSizeModal.width);
+    const height = Number(imageSizeModal.height);
+    if (
+      !Number.isInteger(width) ||
+      width < 1 ||
+      width > 10000 ||
+      !Number.isInteger(height) ||
+      height < 1 ||
+      height > 10000
+    ) {
+      return;
+    }
+
+    const node = editor.state.doc.nodeAt(imageSizeModal.position);
+    if (!node || node.type.name !== "image") {
+      setImageSizeModal(null);
+      return;
+    }
+
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(imageSizeModal.position, undefined, {
+        ...node.attrs,
+        width,
+        height,
+      })
+    );
+    setImageSizeModal(null);
+  }
+
   function applyTextAlign(textAlign) {
     if (selectedPos !== null) {
       const resolvedPosition = editor.state.doc.resolve(selectedPos);
@@ -784,6 +843,7 @@ export default function Editor({
           .filter((node) => node.type.name === "product")
           .map((node) => node.attrs.productId),
         banner_url: data.url,
+        squareImages: squareImagesRef.current,
       });
       setBannerFile(null);
       setBannerModalOpen(false);
@@ -810,6 +870,7 @@ export default function Editor({
         .filter((node) => node.type.name === "product")
         .map((node) => node.attrs.productId),
       banner_url: "",
+      squareImages: squareImagesRef.current,
     });
   }
 
@@ -1061,7 +1122,9 @@ export default function Editor({
   const editorHtml = editor.getHTML();
 
   return (
-    <div className="content-editor relative flex h-full flex-col overflow-hidden bg-white">
+    <div
+      className={`content-editor relative flex h-full flex-col overflow-hidden bg-white${squareImages ? " is-square-images" : ""}`}
+    >
       {/* TOOLBAR */}
       <div className="sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-4 py-2">
         <button
@@ -1133,6 +1196,29 @@ export default function Editor({
         >
           <FiAlignJustify aria-hidden="true" />
         </button>
+
+        <label className="flex items-center gap-2 px-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={squareImages}
+            onChange={(event) => {
+              const nextSquareImages = event.target.checked;
+              squareImagesRef.current = nextSquareImages;
+              setSquareImages(nextSquareImages);
+              onChange?.({
+                editor: editor.getJSON(),
+                selectedProducts: editor.state.doc.content.content
+                  .filter((node) => node.type.name === "product")
+                  .map((node) => node.attrs.productId),
+                banner_url: bannerUrlRef.current,
+                squareImages: nextSquareImages,
+              });
+            }}
+            aria-label="Imagens quadradas"
+            className="h-4 w-4 accent-blue-600"
+          />
+          Imagens quadradas
+        </label>
 
         <input
           type="file"
@@ -1220,7 +1306,9 @@ export default function Editor({
             </div>
 
             <div className="content-preview-viewport min-h-0 flex-1 overflow-auto">
-              <div className="content-preview-page">
+              <div
+                className={`content-preview-page${squareImages ? " is-square-images" : ""}`}
+              >
                 <header className="content-preview-toolbar">
                   <span className="content-preview-back" aria-hidden="true">
                     ‹
@@ -1452,6 +1540,135 @@ export default function Editor({
         </div>
       )}
 
+      {imageSizeModal && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="image-size-modal-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setImageSizeModal(null);
+            }
+          }}
+        >
+          <form
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveImageDimensions();
+            }}
+          >
+            <h2
+              id="image-size-modal-title"
+              className="text-lg font-semibold text-gray-900"
+            >
+              Editar dimensões da imagem
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Introduza a largura e a altura em píxeis.
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
+                Largura (px)
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="1"
+                  required
+                  autoFocus
+                  value={imageSizeModal.width}
+                  onChange={(event) => {
+                    const width = event.target.value;
+                    setImageSizeModal((current) => ({
+                      ...current,
+                      width,
+                      height:
+                        current.keepRatio &&
+                        width &&
+                        Number.isFinite(Number(width)) &&
+                        current.ratio > 0
+                          ? String(
+                              Math.round(Number(width) / current.ratio)
+                            )
+                          : current.height,
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
+                Altura (px)
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="1"
+                  required
+                  value={imageSizeModal.height}
+                  onChange={(event) => {
+                    const height = event.target.value;
+                    setImageSizeModal((current) => ({
+                      ...current,
+                      height,
+                      width:
+                        current.keepRatio &&
+                        height &&
+                        Number.isFinite(Number(height)) &&
+                        current.ratio > 0
+                          ? String(
+                              Math.round(Number(height) * current.ratio)
+                            )
+                          : current.width,
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+            </div>
+            <label className="mt-4 flex w-fit items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={imageSizeModal.keepRatio}
+                onChange={(event) =>
+                  setImageSizeModal((current) => {
+                    const keepRatio = event.target.checked;
+                    const width = Number(current.width);
+                    const height = Number(current.height);
+                    const ratio = width > 0 && height > 0 ? width / height : current.ratio;
+                    return {
+                      ...current,
+                      keepRatio,
+                      ratio:
+                        Number.isFinite(ratio) && ratio > 0
+                          ? ratio
+                          : current.ratio,
+                    };
+                  })
+                }
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              Manter proporção
+            </label>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setImageSizeModal(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
 {productModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
