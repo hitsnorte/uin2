@@ -150,10 +150,9 @@ export default function ReservationsPage() {
   const todayDate = getLocalDateString();
   const calendarYear = calendarMonth.getFullYear();
   const calendarMonthIndex = calendarMonth.getMonth();
-  const monthLabel = new Intl.DateTimeFormat("pt-PT", {
+  const monthLabel = `${new Intl.DateTimeFormat("pt-PT", {
     month: "long",
-    year: "numeric",
-  }).format(calendarMonth);
+  }).format(calendarMonth)} ${calendarYear}`;
   const daysInMonth = new Date(
     calendarYear,
     calendarMonthIndex + 1,
@@ -175,7 +174,7 @@ export default function ReservationsPage() {
 
       <div className="-mx-6 border-b border-gray-200 bg-white px-6 py-3">
         <div>
-          <div className="mb-2 flex items-center justify-center gap-3">
+          <div className="mb-2 flex items-center justify-end gap-3">
             <div className="flex items-center gap-3">
               <button
                 type="button"
