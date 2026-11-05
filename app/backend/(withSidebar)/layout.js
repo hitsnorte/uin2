@@ -7,7 +7,10 @@ export default function WithSidebarLayout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div
+      className="flex h-screen overflow-hidden bg-gray-50"
+      style={{ "--sidebar-width": collapsed ? "5rem" : "16rem" }}
+    >
 
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
