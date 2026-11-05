@@ -54,10 +54,6 @@ const sidebarItems = [
     icon: LuMapPin,
     children: [
       { name: "Grupos de pontos de acesso", path: "/backend/accessPointGroups" },
-      {
-        name: "Subgrupos de pontos de acesso",
-        path: "/backend/accessPointSubGroups",
-      },
       { name: "Pontos de acesso", path: "/backend/accessPoints" },
     ],
   },
