@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
 import { CiUser } from "react-icons/ci";
+import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 
 function getOutletName(outlet) {
   return (
@@ -22,6 +23,14 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function isValidDateString(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+  );
+}
+
 async function readJsonResponse(response) {
   const result = await response.json();
   if (!response.ok) {
@@ -36,18 +45,16 @@ export default function ReservationsPage() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getLocalDateString()
   );
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
+  const [availableDates, setAvailableDates] = useState([]);
   const [people, setPeople] = useState(2);
   const [activeTab, setActiveTab] = useState("availability");
   const [shifts, setShifts] = useState([]);
-  const [selectedSlots, setSelectedSlots] = useState({});
+  const [reservationFromTime, setReservationFromTime] = useState("");
   const [reservations, setReservations] = useState([]);
   const [isLoadingOutlets, setIsLoadingOutlets] = useState(true);
   const [isLoadingShifts, setIsLoadingShifts] = useState(false);
   const [error, setError] = useState("");
+  const [calendarError, setCalendarError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,9 +92,56 @@ export default function ReservationsPage() {
   }, []);
 
   useEffect(() => {
+    if (!outletId) {
+      setAvailableDates([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    setAvailableDates([]);
+    setCalendarError("");
+
+    fetch(
+      `/api/reservations/dashboard?${new URLSearchParams({
+        outlet_id: outletId,
+        view: "availability",
+      })}`,
+      { cache: "no-store", signal: controller.signal }
+    )
+      .then(readJsonResponse)
+      .then((result) => {
+        if (
+          !Array.isArray(result.available_dates) ||
+          result.available_dates.some(
+            (date) => typeof date !== "string" || !isValidDateString(date)
+          )
+        ) {
+          throw new TypeError(
+            "A API devolveu uma lista de datas de disponibilidade inválida."
+          );
+        }
+        const upcomingDates = result.available_dates.filter(
+          (date) => date >= getLocalDateString()
+        );
+        setAvailableDates(upcomingDates);
+        setSelectedDate((current) =>
+          upcomingDates.includes(current)
+            ? current
+            : upcomingDates[0] || getLocalDateString()
+        );
+      })
+      .catch((fetchError) => {
+        if (fetchError.name !== "AbortError") {
+          setCalendarError(fetchError.message);
+        }
+      });
+
+    return () => controller.abort();
+  }, [outletId]);
+
+  useEffect(() => {
     if (!outletId || !selectedDate) {
       setShifts([]);
-      setSelectedSlots({});
       setIsLoadingShifts(false);
       return;
     }
@@ -96,7 +150,6 @@ export default function ReservationsPage() {
     setIsLoadingShifts(true);
     setError("");
     setShifts([]);
-    setSelectedSlots({});
     setReservations([]);
     const params = new URLSearchParams({
       outlet_id: outletId,
@@ -105,6 +158,8 @@ export default function ReservationsPage() {
     });
     if (activeTab === "availability") {
       params.set("people", String(people));
+    } else if (reservationFromTime) {
+      params.set("from_time", reservationFromTime);
     }
 
     fetch(`/api/reservations/dashboard?${params}`, {
@@ -124,18 +179,6 @@ export default function ReservationsPage() {
           throw new TypeError("A API devolveu uma lista de turnos inválida.");
         }
         setShifts(result.shifts);
-        setSelectedSlots(
-          Object.fromEntries(
-            result.shifts.flatMap((shift) => {
-              const firstAvailableSlot = Array.isArray(shift.slots)
-                ? shift.slots.find((slot) => slot.bookable)
-                : null;
-              return firstAvailableSlot
-                ? [[shift.shift_index, firstAvailableSlot.time]]
-                : [];
-            })
-          )
-        );
       })
       .catch((fetchError) => {
         if (fetchError.name !== "AbortError") setError(fetchError.message);
@@ -145,26 +188,9 @@ export default function ReservationsPage() {
       });
 
     return () => controller.abort();
-  }, [activeTab, outletId, people, selectedDate]);
+  }, [activeTab, outletId, people, reservationFromTime, selectedDate]);
 
   const todayDate = getLocalDateString();
-  const calendarYear = calendarMonth.getFullYear();
-  const calendarMonthIndex = calendarMonth.getMonth();
-  const monthLabel = `${new Intl.DateTimeFormat("pt-PT", {
-    month: "long",
-  }).format(calendarMonth)} ${calendarYear}`;
-  const daysInMonth = new Date(
-    calendarYear,
-    calendarMonthIndex + 1,
-    0
-  ).getDate();
-  const monthDates = Array.from(
-    { length: daysInMonth },
-    (_, index) =>
-      getLocalDateString(
-        new Date(calendarYear, calendarMonthIndex, index + 1)
-      )
-  );
 
   return (
     <div className="min-h-full w-full min-w-0">
@@ -173,66 +199,23 @@ export default function ReservationsPage() {
       </div>
 
       <div className="-mx-6 border-b border-gray-200 bg-white px-6 py-3">
-        <div>
-          <div className="mb-2 flex items-center justify-end gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                aria-label="Mês anterior"
-                onClick={() =>
-                  setCalendarMonth(
-                    (current) =>
-                      new Date(
-                        current.getFullYear(),
-                        current.getMonth() - 1,
-                        1
-                      )
-                  )
-                }
-                className="grid h-8 w-8 place-items-center rounded-lg text-xl text-gray-600 hover:bg-gray-100"
-              >
-                ‹
-              </button>
-              <h2 className="min-w-36 text-center text-sm font-semibold capitalize text-gray-900">
-                {monthLabel}
-              </h2>
-              <button
-                type="button"
-                aria-label="Mês seguinte"
-                onClick={() =>
-                  setCalendarMonth(
-                    (current) =>
-                      new Date(
-                        current.getFullYear(),
-                        current.getMonth() + 1,
-                        1
-                      )
-                  )
-                }
-                className="grid h-8 w-8 place-items-center rounded-lg text-xl text-gray-600 hover:bg-gray-100"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-          <div
-            className="flex items-center gap-1.5 overflow-x-auto pb-1"
-            aria-label="Dias do mês"
+        <div
+          className="flex min-w-0 items-center gap-2"
+          role="group"
+          aria-label="Dias com disponibilidade"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setReservationFromTime("");
+              setSelectedDate(todayDate);
+            }}
+            className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            <button
-              type="button"
-              onClick={() => {
-                const today = new Date();
-                setCalendarMonth(
-                  new Date(today.getFullYear(), today.getMonth(), 1)
-                );
-                setSelectedDate(todayDate);
-              }}
-              className="mr-1 shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Hoje
-            </button>
-            {monthDates.map((date) => {
+            Hoje
+          </button>
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-1">
+            {availableDates.map((date, index) => {
               const isSelected = date === selectedDate;
               const isToday = date === todayDate;
               const dateObject = new Date(`${date}T00:00:00.000Z`);
@@ -240,39 +223,75 @@ export default function ReservationsPage() {
                 dateStyle: "full",
                 timeZone: "UTC",
               }).format(dateObject);
-              const weekday = new Intl.DateTimeFormat("pt-PT", {
-                weekday: "short",
+              const weekday = [
+                "Dom",
+                "Seg",
+                "Ter",
+                "Qua",
+                "Qui",
+                "Sex",
+                "Sab",
+              ][dateObject.getUTCDay()];
+              const previousDate = availableDates[index - 1];
+              const startsNewMonth =
+                !previousDate || date.slice(0, 7) !== previousDate.slice(0, 7);
+              const monthLabel = new Intl.DateTimeFormat("pt-PT", {
+                month: "short",
                 timeZone: "UTC",
               })
                 .format(dateObject)
-                .replace(".", "");
+                .replace(".", "")
+                .replace(/^./, (letter) => letter.toLocaleUpperCase("pt-PT"));
 
               return (
-                <button
+                <div
                   key={date}
-                  type="button"
-                  onClick={() => setSelectedDate(date)}
-                  aria-label={fullDate}
-                  aria-pressed={isSelected}
-                  className={`flex min-w-11 shrink-0 flex-col items-center rounded-lg border px-2 py-1 transition ${
-                    isSelected
-                      ? "border-red-500 bg-red-500 text-white shadow-sm"
-                      : isToday
-                        ? "border-red-300 bg-white text-red-600 hover:bg-red-50"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-red-300 hover:bg-red-50"
+                  className={`flex min-w-12 shrink-0 flex-col items-center gap-1 ${
+                    startsNewMonth
+                      ? "ml-1 border-l border-gray-200 pl-2"
+                      : ""
                   }`}
                 >
-                  <span className="text-xs font-medium capitalize">
-                    {weekday}
-                  </span>
-                  <span className="text-sm font-semibold leading-5">
-                    {Number(date.slice(8, 10))}
-                  </span>
-                </button>
+                  {startsNewMonth ? (
+                    <span className="h-4 text-xs font-medium text-gray-500">
+                      {monthLabel}
+                    </span>
+                  ) : (
+                    <span aria-hidden="true" className="h-4" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReservationFromTime("");
+                      setSelectedDate(date);
+                    }}
+                    aria-label={fullDate}
+                    aria-pressed={isSelected}
+                    className={`flex min-w-12 shrink-0 flex-col items-center rounded-lg border px-2 py-1 transition ${
+                      isSelected
+                        ? "border-red-500 bg-red-500 text-white shadow-sm"
+                        : isToday
+                          ? "border-red-300 bg-white text-red-600 hover:bg-red-50"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-red-300 hover:bg-red-50"
+                    }`}
+                  >
+                    <span className="text-sm font-semibold leading-5">
+                      {Number(date.slice(8, 10))}
+                    </span>
+                    <span className="text-xs font-medium capitalize">
+                      {weekday}
+                    </span>
+                  </button>
+                </div>
               );
             })}
           </div>
         </div>
+        {calendarError && (
+          <p className="mt-2 text-sm text-red-700" role="alert">
+            {calendarError}
+          </p>
+        )}
       </div>
 
       <main className="min-w-0 py-5">
@@ -298,7 +317,12 @@ export default function ReservationsPage() {
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id !== "reservations") {
+                      setReservationFromTime("");
+                    }
+                  }}
                   className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
                     activeTab === tab.id
                       ? "bg-white text-gray-900 shadow-sm"
@@ -316,7 +340,10 @@ export default function ReservationsPage() {
               Outlet
               <select
                 value={outletId}
-                onChange={(event) => setOutletId(event.target.value)}
+                onChange={(event) => {
+                  setReservationFromTime("");
+                  setOutletId(event.target.value);
+                }}
                 disabled={isLoadingOutlets || outlets.length === 0}
                 className="h-9 min-w-52 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-red-500"
               >
@@ -382,13 +409,6 @@ export default function ReservationsPage() {
         {activeTab === "availability" && (
           <div className="grid gap-4">
             {shifts.map((shift) => {
-              const selectedTime = selectedSlots[shift.shift_index];
-              const selectedSlot = shift.slots.find(
-                (slot) => slot.time === selectedTime
-              );
-              const occupancyPercent =
-                selectedSlot?.occupancy_percent ?? shift.occupancy_percent;
-
               return (
               <section
                 key={shift.shift_index}
@@ -406,102 +426,62 @@ export default function ReservationsPage() {
                   </span>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  {selectedSlot ? (
-                    <>
-                      <span className="text-sm font-semibold text-emerald-700">
-                        {selectedSlot.available} livres
-                      </span>
-                      <span className="text-gray-400">·</span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {selectedSlot.occupied} ocupadas
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        de {selectedSlot.total} mesas às {selectedSlot.time}
-                      </span>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Selecione um horário disponível para ver as mesas dessa
-                      slot.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-2 flex items-center gap-2">
-                  <div
-                    className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100"
-                    role="progressbar"
-                    aria-label={
-                      selectedSlot
-                        ? `Ocupação às ${selectedSlot.time} no turno ${shift.label}`
-                        : `Ocupação do turno ${shift.label}`
-                    }
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={occupancyPercent}
-                  >
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        occupancyPercent >= 80
-                          ? "bg-red-500"
-                          : occupancyPercent >= 50
-                            ? "bg-amber-500"
-                            : "bg-emerald-500"
-                      }`}
-                      style={{ width: `${occupancyPercent}%` }}
-                    />
-                  </div>
-                  <p className="shrink-0 text-xs text-gray-500">
-                    {occupancyPercent}% ocupado{" "}
-                    {selectedSlot
-                      ? `às ${selectedSlot.time}`
-                      : "no turno"}
-                  </p>
-                </div>
-
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold text-gray-800">
-                    Horários para {people} pessoas
+                    Afluência
                   </h3>
                   {shift.slots.length ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {shift.slots.map((slot) => {
-                        const time = slot.time;
-                        const isAvailable = slot.bookable;
-                        const isSelected = selectedTime === time;
+                    <div
+                      className="mt-2 overflow-x-auto pb-2"
+                      role="group"
+                      aria-label={`Ocupação por horário no turno ${shift.label}`}
+                    >
+                      <div className="flex min-w-max items-end gap-2">
+                        {shift.slots.map((slot) => {
+                          const time = slot.time;
+                          const barColor =
+                            slot.total > 0 && slot.available <= 0
+                              ? "bg-red-300"
+                              : slot.occupied > 0
+                                ? "bg-amber-400"
+                                : "bg-emerald-400";
+                          const status =
+                            slot.total > 0 && slot.available <= 0
+                              ? "lotada"
+                              : slot.occupied > 0
+                                ? "com reservas"
+                                : "sem reservas";
 
-                        return isAvailable ? (
-                          <button
-                            key={time}
-                            type="button"
-                            onClick={() =>
-                              setSelectedSlots((current) => ({
-                                ...current,
-                                [shift.shift_index]: time,
-                              }))
-                            }
-                            aria-pressed={isSelected}
-                            title={`Ver disponibilidade às ${time}`}
-                            className={`rounded-lg border px-2.5 py-1 text-sm font-medium ${
-                              isSelected
-                                ? "border-emerald-600 bg-emerald-100 text-emerald-900 ring-2 ring-emerald-200"
-                                : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400"
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ) : (
-                          <span
-                            key={time}
-                            title="Completo"
-                            className="rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-sm font-medium text-gray-500 line-through decoration-gray-500"
-                          >
-                            {time}
-                            <span className="sr-only"> (completo)</span>
-                          </span>
-                        );
-                      })}
+                          return (
+                            <button
+                              key={time}
+                              type="button"
+                              onClick={() => {
+                                setReservationFromTime(time);
+                                setActiveTab("reservations");
+                              }}
+                              aria-label={`${time}: ${slot.occupancy_percent}% ocupado, ${status}`}
+                              title={`${time} · ${slot.occupancy_percent}% ocupado · ${slot.occupied}/${slot.total} mesas · ${status}`}
+                              className="flex w-12 shrink-0 flex-col items-center gap-1 rounded-t-md px-1 pb-1 pt-2 text-xs transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500"
+                            >
+                              <span className="text-[10px] font-medium text-gray-500">
+                                {slot.occupancy_percent}%
+                              </span>
+                              <span className="flex h-8 w-4 items-end overflow-hidden rounded-t-sm bg-gray-100">
+                                <span
+                                  className={`w-full rounded-t-sm transition-all ${barColor}`}
+                                  style={{
+                                    height: `${Math.max(slot.occupancy_percent, 4)}%`,
+                                  }}
+                                />
+                              </span>
+                              <span className="font-medium text-gray-700">
+                                {time}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : (
                     <p className="mt-2 text-sm text-gray-500">
@@ -510,38 +490,75 @@ export default function ReservationsPage() {
                   )}
                 </div>
 
-                <details className="mt-4 border-t border-gray-100 pt-3">
-                  <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-                    Mesas disponíveis por tipologia
-                    {selectedSlot
-                      ? ` · ${selectedSlot.time}`
-                      : shift.peak_time
-                        ? ` · pico às ${shift.peak_time}`
-                        : ""}
+                <details className="group border-t border-gray-100 pt-3">
+                  <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-gray-800">
+                    <span>Mesas disponíveis por tipologia</span>
+                    <IoIosArrowDown
+                      aria-hidden="true"
+                      className="group-open:hidden"
+                    />
+                    <IoIosArrowUp
+                      aria-hidden="true"
+                      className="hidden group-open:block"
+                    />
                   </summary>
-                  {(selectedSlot?.typologies || shift.typologies).length ? (
-                    <ul className="mt-2 divide-y divide-gray-100">
-                      {(selectedSlot?.typologies || shift.typologies).map(
-                        (typology) => (
-                          <li
-                            key={typology.typology_id}
-                            className="flex items-center justify-between gap-3 py-1.5 text-sm"
-                          >
-                            <span className="inline-flex items-center gap-1.5 text-gray-700">
-                              <CiUser size={20} />
-                              <span>× {typology.seats ?? "—"}</span>
-                            </span>
-                            <span className="font-semibold text-gray-900">
-                              {typology.available} livres
-                              <span className="font-normal text-gray-500">
-                                {" "}
-                                / {typology.total}
-                              </span>
-                            </span>
-                          </li>
-                        )
-                      )}
-                    </ul>
+                  {shift.typologies.length ? (
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="min-w-full border-separate border-spacing-0 text-sm">
+                        <thead>
+                          <tr>
+                            <th
+                              scope="col"
+                              className="sticky left-0 bg-white px-3 py-2 text-left text-xs font-semibold text-gray-600"
+                            >
+                              Pessoas
+                            </th>
+                            {shift.slots.map((slot) => (
+                              <th
+                                key={slot.time}
+                                scope="col"
+                                className="whitespace-nowrap px-3 py-2 text-center text-xs font-semibold text-gray-600"
+                              >
+                                {slot.time}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shift.typologies.map((typology) => (
+                            <tr key={typology.typology_id}>
+                              <th
+                                scope="row"
+                                className="sticky left-0 whitespace-nowrap border-t border-gray-100 bg-white px-3 py-2 text-left font-medium text-gray-700"
+                              >
+                                <span className="inline-flex items-center gap-1.5">
+                                  <CiUser size={20} aria-hidden="true" />×{" "}
+                                  {typology.seats ?? "—"}
+                                </span>
+                              </th>
+                              {shift.slots.map((slot) => {
+                                const slotTypology = slot.typologies.find(
+                                  (item) =>
+                                    item.typology_id === typology.typology_id
+                                );
+                                const available = slotTypology?.available ?? 0;
+                                const total = slotTypology?.total ?? 0;
+
+                                return (
+                                  <td
+                                    key={slot.time}
+                                    aria-label={`${available} livres de ${total}`}
+                                    className="whitespace-nowrap border-t border-gray-100 px-3 py-2 text-center font-semibold text-gray-900"
+                                  >
+                                    {available}/{total}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : (
                     <p className="mt-2 text-sm text-gray-500">
                       Não existem tipologias configuradas.
@@ -556,6 +573,11 @@ export default function ReservationsPage() {
 
         {activeTab === "reservations" && !isLoadingShifts && selectedDate && (
           <div className="grid gap-3">
+            {reservationFromTime && (
+              <p className="text-sm text-gray-600">
+                Reservas a partir das {reservationFromTime}
+              </p>
+            )}
             {reservations.length ? (
               reservations.map((reservation) => (
                 <section
@@ -598,7 +620,9 @@ export default function ReservationsPage() {
               ))
             ) : (
               <p className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600">
-                Não existem reservas para este dia.
+                {reservationFromTime
+                  ? `Não existem reservas a partir das ${reservationFromTime}.`
+                  : "Não existem reservas para este dia."}
               </p>
             )}
           </div>
