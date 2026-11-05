@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { findRoomTableCombination } from "@/lib/tableAvailability";
+import {
+  findRoomTableCombination,
+  getLockedTableCounts,
+} from "@/lib/tableAvailability";
 import {
   formatReservationTime,
   getRequiredSlotTimes,
@@ -79,6 +82,7 @@ export async function GET(request) {
   const dateValue = searchParams.get("date");
   const people = Number(searchParams.get("people") || 2);
   const view = searchParams.get("view") || "availability";
+  const fromTime = searchParams.get("from_time");
 
   if (
     !Number.isSafeInteger(outletId) ||
@@ -87,7 +91,11 @@ export async function GET(request) {
     people < 2 ||
     people > 20 ||
     !["availability", "reservations"].includes(view) ||
-    (dateValue && !isReservationDate(dateValue))
+    (dateValue && !isReservationDate(dateValue)) ||
+    (fromTime !== null &&
+      (!dateValue ||
+        view !== "reservations" ||
+        parseReservationTime(fromTime) === null))
   ) {
     return Response.json(
       { error: "Indique um outlet, uma data e um número de pessoas válidos." },
@@ -119,11 +127,14 @@ export async function GET(request) {
       const startOfDay = new Date(`${dateValue}T00:00:00.000Z`);
       const startOfNextDay = new Date(startOfDay);
       startOfNextDay.setUTCDate(startOfNextDay.getUTCDate() + 1);
+      const startAt = fromTime
+        ? new Date(`${dateValue}T${fromTime}:00.000Z`)
+        : startOfDay;
       const reservations = await prisma.reservations.findMany({
         where: {
           outlet_id: outletId,
           status: "confirmed",
-          start_at: { gte: startOfDay, lt: startOfNextDay },
+          start_at: { gte: startAt, lt: startOfNextDay },
         },
         select: {
           reservation_id: true,
@@ -230,7 +241,7 @@ export async function GET(request) {
       return Response.json({ date: dateValue, shifts: [] });
     }
 
-    const [schedule, items, rows] = await Promise.all([
+    const [schedule, items, rows, lockedPoints] = await Promise.all([
       prisma.schedules.findUnique({
         where: { schedule_id: outlet.schedule_id },
         select: { schedule_json: true, slotDuration: true },
@@ -258,7 +269,21 @@ export async function GET(request) {
         },
         orderBy: [{ start_time: "asc" }, { room_id: "asc" }],
       }),
+      prisma.accessPoints.findMany({
+        where: {
+          outlet_id: outletId,
+          active: true,
+          prevent_combination: true,
+        },
+        select: {
+          access_point_group_id: true,
+          typology_id: true,
+          prevent_combination: true,
+          active: true,
+        },
+      }),
     ]);
+    const lockedTableCounts = getLockedTableCounts(lockedPoints);
 
     if (!schedule) {
       return Response.json({ date: dateValue, shifts: [] });
@@ -361,6 +386,7 @@ export async function GET(request) {
                 requiredTimes,
                 people,
                 allowCombination: outlet.combine_tables,
+                lockedTableCounts,
               });
               const capacity = getRequiredTimeCapacity(rows, requiredTimes);
               const typologyAvailability = outlet.typologies.map((typology) => {

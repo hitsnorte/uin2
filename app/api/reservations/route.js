@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { getFoSessionUser } from "@/lib/foSession";
-import { findRoomTableCombination } from "@/lib/tableAvailability";
+import {
+  findRoomTableCombination,
+  getLockedTableCounts,
+} from "@/lib/tableAvailability";
 import {
   formatReservationTime,
   DEFAULT_RESERVATION_TIME_ZONE,
@@ -174,12 +177,26 @@ export async function POST(request) {
         },
         orderBy: [{ start_time: "asc" }, { room_id: "asc" }],
       });
+      const lockedPoints = await transaction.accessPoints.findMany({
+        where: {
+          outlet_id: outletId,
+          active: true,
+          prevent_combination: true,
+        },
+        select: {
+          access_point_group_id: true,
+          typology_id: true,
+          prevent_combination: true,
+          active: true,
+        },
+      });
       const tableCombination = findRoomTableCombination({
         rows: availabilityRows,
         typologies,
         requiredTimes,
         people,
         allowCombination: outlet.combine_tables,
+        lockedTableCounts: getLockedTableCounts(lockedPoints),
       });
       if (!tableCombination) {
         const error = new Error(

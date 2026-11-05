@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import Topbar from "@/components/layout/Topbar";
+import { FiLock, FiUnlock } from "react-icons/fi";
 
 const emptyForm = {
     access_point_name: "",
@@ -10,6 +11,7 @@ const emptyForm = {
     product_cat: "",
     activities: "",
     active: true,
+    prevent_combination: false,
     typology_id: ""
 };
 
@@ -70,6 +72,7 @@ export default function AccessPointsPage() {
             product_cat: toText(point.product_cat),
             activities: toText(point.activities),
             active: point.active !== false,
+            prevent_combination: point.prevent_combination === true,
             typology_id: point.typology_id == null ? "" : String(point.typology_id)
         });
 
@@ -311,6 +314,46 @@ export default function AccessPointsPage() {
                                 />
                                 Ponto ativo
                             </label>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setForm((previous) => ({
+                                        ...previous,
+                                        prevent_combination:
+                                            !previous.prevent_combination
+                                    }))
+                                }
+                                aria-pressed={form.prevent_combination}
+                                aria-label={
+                                    form.prevent_combination
+                                        ? "Mesa bloqueada para junção"
+                                        : "Mesa permitida para junção"
+                                }
+                                className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${
+                                    form.prevent_combination
+                                        ? "border-amber-300 bg-amber-50 text-amber-900"
+                                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                                }`}
+                            >
+                                {form.prevent_combination ? (
+                                    <FiLock size={18} aria-hidden="true" />
+                                ) : (
+                                    <FiUnlock size={18} aria-hidden="true" />
+                                )}
+                                <span>
+                                    <span className="block text-sm font-medium">
+                                        {form.prevent_combination
+                                            ? "Mesa bloqueada para junção"
+                                            : "Mesa disponível para junção"}
+                                    </span>
+                                    <span className="mt-0.5 block text-xs opacity-80">
+                                        {form.prevent_combination
+                                            ? "Não será usada para combinar mesas; continua disponível individualmente."
+                                            : "Pode ser usada numa combinação de mesas."}
+                                    </span>
+                                </span>
+                            </button>
 
                             {/* {[
                                 ["products", "Produtos (JSON)"],

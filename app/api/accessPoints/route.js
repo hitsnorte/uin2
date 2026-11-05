@@ -69,6 +69,15 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const typologyId = Number(body.typology_id);
+    if (
+      body.prevent_combination !== undefined &&
+      ![true, false, 1, 0, "1", "0"].includes(body.prevent_combination)
+    ) {
+      return Response.json(
+        { error: "O bloqueio para junção deve ser booleano." },
+        { status: 400 }
+      );
+    }
 
     if (!Number.isSafeInteger(typologyId) || typologyId <= 0) {
       return Response.json({ error: "É obrigatório selecionar uma tipologia válida." }, { status: 400 });
@@ -89,6 +98,10 @@ export async function POST(req) {
         product_cat: parseJson(body.product_cat),
         activities: parseJson(body.activities),
         active: body.active !== false,
+        prevent_combination:
+          body.prevent_combination === true ||
+          body.prevent_combination === 1 ||
+          body.prevent_combination === "1",
         typology_id: typologyId,
       },
     });
