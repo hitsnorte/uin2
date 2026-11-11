@@ -38,7 +38,7 @@
 
 .content-editor .ProseMirror .editor-image-node {
   display: inline-block;
-  margin: 12px 8px;
+  margin: 0;
   vertical-align: top;
 }
 
