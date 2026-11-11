@@ -765,7 +765,56 @@ export default function Homepage() {
     return menus.filter((menu) => Number(menu.outlet_id) === Number(outletId));
   }
 
-   function getMenuSubmenus(menuId) {
+  function selectOutlet(outletId) {
+    const outletMenus = getOutletMenus(outletId);
+
+    setSelectedOutlet(outletId);
+    setSelectedSubmenu(null);
+
+    if (outletMenus.length !== 1) {
+      setSelectedMenu(null);
+      return;
+    }
+
+    const [menu] = outletMenus;
+    const menuSubmenus = submenus.filter(
+      (submenu) => Number(submenu.menu_id) === Number(menu.menu_id)
+    );
+
+    if (menuSubmenus.length === 0) {
+      setSelectedMenu(null);
+      openMenuContent(menu);
+      return;
+    }
+
+    if (menuSubmenus.length === 1) {
+      setSelectedMenu(null);
+      openSubmenuContent(menuSubmenus[0]);
+      return;
+    }
+
+    setSelectedMenu(menu.menu_id);
+  }
+
+  function selectMenu(menu) {
+    const menuSubmenus = submenus.filter(
+      (submenu) => Number(submenu.menu_id) === Number(menu.menu_id)
+    );
+
+    setSelectedSubmenu(null);
+
+    if (menuSubmenus.length === 1) {
+      setSelectedMenu(null);
+      openSubmenuContent(menuSubmenus[0]);
+    } else if (menu.has_submenus === false) {
+      setSelectedMenu(null);
+      openMenuContent(menu);
+    } else {
+      setSelectedMenu(menu.menu_id);
+    }
+  }
+
+  function getMenuSubmenus(menuId) {
     const menuSubmenus = submenus.filter(
       (submenu) => Number(submenu.menu_id) === Number(menuId)
     );
@@ -1451,16 +1500,9 @@ export default function Homepage() {
                         return;
                       }
                       if (selectedOutlet !== null) {
-                        if (item.has_submenus === false) {
-                          openMenuContent(item);
-                        } else {
-                          setSelectedMenu(item.menu_id);
-                        setSelectedSubmenu(null);
-                        }
+                        selectMenu(item);
                       } else if (selectedArea !== null) {
-                        setSelectedOutlet(item.outlet_id);
-                        setSelectedMenu(null);
-                        setSelectedSubmenu(null);
+                        selectOutlet(item.outlet_id);
                       } else {
                         setSelectedArea(item.area_id);
                         setSelectedOutlet(null);
@@ -1622,9 +1664,7 @@ export default function Homepage() {
             window.location.href = "/homepage";
           }}
           onOutletClick={(outletId) => {
-            setSelectedOutlet(outletId);
-            setSelectedMenu(null);
-            setSelectedSubmenu(null);
+            selectOutlet(outletId);
           }}
           languages={languages}
           selectedLang={selectedLang}
@@ -1696,12 +1736,7 @@ export default function Homepage() {
                           type="button"
                           onClick={() => {
                             if (selectedMenu === null) {
-                              if (item.has_submenus === false) {
-                                openMenuContent(item);
-                              } else {
-                                setSelectedMenu(item.menu_id);
-                                setSelectedSubmenu(null);
-                            }
+                              selectMenu(item);
                             } else {
                               openSubmenuContent(item);
                             }
