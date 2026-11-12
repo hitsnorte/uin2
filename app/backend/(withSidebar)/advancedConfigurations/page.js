@@ -42,6 +42,41 @@ const emptyChatbotSettings = {
   staychatWebhook: "",
 };
 
+const staychatCampaignSections = [
+  [
+    "Produtos",
+    [
+      ["product_accept", "Produto aceite"],
+      ["product_in_progress", "Produto em progresso"],
+      ["product_completed", "Produto concluído"],
+      ["product_cancelled", "Produto cancelado"],
+    ],
+  ],
+  [
+    "Serviços",
+    [
+      ["service_confirmed", "Serviço confirmado"],
+      ["service_modified", "Serviço alterado"],
+      ["service_cancelled", "Serviço cancelado"],
+    ],
+  ],
+  [
+    "Reservas",
+    [
+      ["reservation_confirmed", "Reserva confirmada"],
+      ["reservation_cancelled", "Reserva cancelada"],
+    ],
+  ],
+];
+
+const staychatCampaignFields = staychatCampaignSections.flatMap(
+  ([, fields]) => fields
+);
+
+const emptyStaychatCampaigns = Object.fromEntries(
+  staychatCampaignFields.map(([name]) => [name, ""])
+);
+
 function toChatbotFormSettings(settings) {
   return {
     active: settings.active ?? emptyChatbotSettings.active,
@@ -59,27 +94,31 @@ export default function AdvancedConfigurationsPage() {
   const [templates, setTemplates] = useState([]);
   const [templateForm, setTemplateForm] = useState(emptyTemplate);
   const [chatbotSettings, setChatbotSettings] = useState(emptyChatbotSettings);
+  const [staychatCampaigns, setStaychatCampaigns] = useState(emptyStaychatCampaigns);
   const [editingId, setEditingId] = useState(null);
   const [activeLanguage, setActiveLanguage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [savingChatbotSettings, setSavingChatbotSettings] = useState(false);
+  const [savingStaychatCampaigns, setSavingStaychatCampaigns] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [settingsResponse, templatesResponse, chatbotResponse] = await Promise.all([
+        const [settingsResponse, templatesResponse, chatbotResponse, campaignsResponse] = await Promise.all([
           fetch("/api/emailSettings"),
           fetch("/api/emailTemplates"),
           fetch("/api/chatbotsStay"),
+          fetch("/api/staychatCampaigns"),
         ]);
 
         const settingsData = await settingsResponse.json();
         const templatesData = await templatesResponse.json();
         const chatbotData = await chatbotResponse.json();
+        const campaignsData = await campaignsResponse.json();
 
         if (settingsData) {
           setSettings({
@@ -95,6 +134,18 @@ export default function AdvancedConfigurationsPage() {
 
         if (chatbotData) {
           setChatbotSettings(toChatbotFormSettings(chatbotData));
+        }
+
+        if (campaignsData) {
+          setStaychatCampaigns({
+            ...emptyStaychatCampaigns,
+            ...Object.fromEntries(
+              staychatCampaignFields.map(([name]) => [
+                name,
+                campaignsData[name] || "",
+              ])
+            ),
+          });
         }
       } catch (error) {
         setMessageType("error");
@@ -261,6 +312,54 @@ export default function AdvancedConfigurationsPage() {
       );
     } finally {
       setSavingChatbotSettings(false);
+    }
+  }
+
+  function updateStaychatCampaigns(event) {
+    const { name, value } = event.target;
+
+    setStaychatCampaigns((current) => ({
+      ...current,
+      [name]: value,
+    }));
+  }
+
+  async function saveStaychatCampaigns(event) {
+    event.preventDefault();
+
+    setSavingStaychatCampaigns(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch("/api/staychatCampaigns", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(staychatCampaigns),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível guardar as campanhas Staychat.");
+      }
+
+      setStaychatCampaigns({
+        ...emptyStaychatCampaigns,
+        ...Object.fromEntries(
+          staychatCampaignFields.map(([name]) => [name, data[name] || ""])
+        ),
+      });
+      setMessageType("success");
+      setMessage("Campanhas Staychat guardadas com sucesso.");
+    } catch (error) {
+      setMessageType("error");
+      setMessage(
+        error.message || "Não foi possível guardar as campanhas Staychat."
+      );
+    } finally {
+      setSavingStaychatCampaigns(false);
     }
   }
 
@@ -530,6 +629,50 @@ export default function AdvancedConfigurationsPage() {
             </div>
           </form>
         </section>
+
+        {chatbotSettings.provider === "Staychat" && (
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm mt-3">
+            <SectionTitle
+              title="Campanhas Staychat"
+              description="Configure os IDs das campanhas usadas nos diferentes estados de produtos, serviços e reservas."
+            />
+
+            <form
+              onSubmit={saveStaychatCampaigns}
+              className="mt-5 grid gap-5"
+            >
+              {staychatCampaignSections.map(([sectionTitle, fields]) => (
+                <div key={sectionTitle}>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-800">
+                    {sectionTitle}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {fields.map(([name, label]) => (
+                      <Field
+                        key={name}
+                        label={label}
+                        name={name}
+                        value={staychatCampaigns[name]}
+                        onChange={updateStaychatCampaigns}
+                        maxLength={200}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={savingStaychatCampaigns}
+                  className="flex rounded-xl bg-gradient-to-r from-red-600 to-red-500 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-red-200 transition hover:-translate-y-0.5 hover:from-red-700 hover:to-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingStaychatCampaigns ? "A guardar..." : "Guardar campanhas"}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
       </main>
     </div>
   );

@@ -521,3 +521,18 @@ model ReservationTableAllocations {
   @@index([reservation_id], map: "idx_reservation_table_allocations_reservation")
   @@index([typology_id], map: "idx_reservation_table_allocations_typology")
 }
+
+model StaychatCampaigns {
+  staychat_campaign_id  Int       @id @default(autoincrement())
+  product_accept        String?   @db.VarChar(200)
+  product_in_progress   String?   @db.VarChar(200)
+  product_completed     String?   @db.VarChar(200)
+  product_cancelled     String?   @db.VarChar(200)
+  service_confirmed     String?   @db.VarChar(200)
+  service_modified      String?   @db.VarChar(200)
+  service_cancelled     String?   @db.VarChar(200)
+  reservation_confirmed String?   @db.VarChar(200)
+  reservation_cancelled String?   @db.VarChar(200)
+  createdAt             DateTime? @default(now()) @db.Timestamp(0)
+  updatedAt             DateTime? @default(now()) @db.Timestamp(0)
+}
