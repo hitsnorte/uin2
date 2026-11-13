@@ -6,6 +6,24 @@ function isEnabled(value) {
   return value === true || value === 1 || value === "1";
 }
 
+const campaignsByItemType = {
+  Produto: [
+    ["product_accept", "Produto aceite"],
+    ["product_in_progress", "Produto em progresso"],
+    ["product_completed", "Produto concluído"],
+    ["product_cancelled", "Produto cancelado"],
+  ],
+  Serviço: [
+    ["service_confirmed", "Serviço confirmado"],
+    ["service_modified", "Serviço alterado"],
+    ["service_cancelled", "Serviço cancelado"],
+  ],
+  "Reserva de mesa": [
+    ["reservation_confirmed", "Reserva confirmada"],
+    ["reservation_cancelled", "Reserva cancelada"],
+  ],
+};
+
 export default function ItemModal({
   item,
   shiftOptions = [],
@@ -16,6 +34,7 @@ export default function ItemModal({
 }) {
   const isTableReservation = item.item_type === "Reserva de mesa";
   const isProduct = item.item_type === "Produto";
+  const campaignFields = campaignsByItemType[item.item_type] || [];
   const [form, setForm] = useState({
     item_name1: item.item_name1 || "",
     item_description1: item.item_description1 || "",
@@ -28,6 +47,9 @@ export default function ItemModal({
     order: isEnabled(item.order),
     sendStaychat: isEnabled(item.sendStaychat),
     checkin: isEnabled(item.checkin),
+    ...Object.fromEntries(
+      campaignFields.map(([field]) => [field, isEnabled(item[field])])
+    ),
     shift_index: String(
       shiftOptions.some((shift) => shift.shift_index === initialShiftIndex)
         ? initialShiftIndex
@@ -36,6 +58,10 @@ export default function ItemModal({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const showStaychatToggle =
+    (isProduct && form.order) ||
+    (reservationAssignment && form.order) ||
+    (!isProduct && !reservationAssignment && campaignFields.length > 0);
 
   function handleChange(event) {
     const { name, value, type, checked } = event.target;
@@ -127,6 +153,16 @@ export default function ItemModal({
                       checkin: form.checkin,
                     }
                   : {}),
+              }
+            : {}),
+          ...(!isProduct && !reservationAssignment && campaignFields.length > 0
+            ? { sendStaychat: form.sendStaychat }
+            : {}),
+          ...(form.sendStaychat && campaignFields.length > 0
+            ? {
+                campaigns: Object.fromEntries(
+                  campaignFields.map(([field]) => [field, form[field]])
+                ),
               }
             : {}),
         },
@@ -333,7 +369,7 @@ export default function ItemModal({
               </div>
             </fieldset>
           )}
-          {(isProduct || reservationAssignment) && form.order && (
+          {showStaychatToggle && (
             <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
               <input
                 type="checkbox"
@@ -343,8 +379,37 @@ export default function ItemModal({
                 disabled={isSaving}
                 className="mt-0.5 h-4 w-4 accent-red-500"
               />
-              <span>Enviar notificações de pedidos para o Staychat</span>
+              <span>
+                {isProduct
+                  ? "Enviar notificações de pedidos para o Staychat"
+                  : "Enviar notificações para o Staychat"}
+              </span>
             </label>
+          )}
+          {form.sendStaychat && campaignFields.length > 0 && (
+            <fieldset className="flex flex-col gap-2 rounded-lg border border-red-100 bg-red-50/50 p-3">
+              <legend className="px-1 text-sm font-bold text-gray-700">
+                Campanhas Staychat
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {campaignFields.map(([field, label]) => (
+                  <label
+                    key={field}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      name={field}
+                      checked={form[field]}
+                      onChange={handleChange}
+                      disabled={isSaving}
+                      className="h-4 w-4 accent-red-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           )}
         </div>
 

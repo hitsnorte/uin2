@@ -5,6 +5,31 @@ function isEnabled(value) {
   return value === true || value === 1 || value === "1";
 }
 
+function getStaychatEnabled(item, body) {
+  if (
+    !Object.hasOwn(body, "sendStaychat") &&
+    !Object.hasOwn(body, "order")
+  ) {
+    return isEnabled(item.sendStaychat);
+  }
+
+  const enabled = isEnabled(body.sendStaychat);
+  return item.item_type === "Produto"
+    ? isEnabled(body.order) && enabled
+    : enabled;
+}
+
+const campaignsByItemType = {
+  Produto: [
+    "product_accept",
+    "product_in_progress",
+    "product_completed",
+    "product_cancelled",
+  ],
+  Serviço: ["service_confirmed", "service_modified", "service_cancelled"],
+  "Reserva de mesa": ["reservation_confirmed", "reservation_cancelled"],
+};
+
 export async function PATCH(request, context) {
   try {
     const { id: rawId } = await context.params;
@@ -23,6 +48,43 @@ export async function PATCH(request, context) {
     });
     if (!currentItem) {
       return Response.json({ error: "Item do outlet não encontrado." }, { status: 404 });
+    }
+
+    const campaignFields = campaignsByItemType[currentItem.item_type] || [];
+    let campaignData = {};
+    if (Object.hasOwn(body, "campaigns")) {
+      const campaigns = body.campaigns;
+      if (
+        !campaigns ||
+        typeof campaigns !== "object" ||
+        Array.isArray(campaigns)
+      ) {
+        return Response.json(
+          { error: "As campanhas do item são inválidas." },
+          { status: 400 }
+        );
+      }
+
+      const staychatActive = getStaychatEnabled(currentItem, body);
+      if (!staychatActive) {
+        return Response.json(
+          { error: "Ative o envio Staychat do item para configurar campanhas." },
+          { status: 400 }
+        );
+      }
+      if (
+        campaignFields.length === 0 ||
+        Object.keys(campaigns).length !== campaignFields.length ||
+        campaignFields.some((field) => typeof campaigns[field] !== "boolean") ||
+        Object.keys(campaigns).some((field) => !campaignFields.includes(field))
+      ) {
+        return Response.json(
+          { error: "As campanhas não correspondem ao tipo deste item." },
+          { status: 400 }
+        );
+      }
+
+      campaignData = campaigns;
     }
 
     if (!currentItem.is_reservation_item) {
@@ -88,9 +150,11 @@ export async function PATCH(request, context) {
         takeaway_order: isEnabled(body.takeaway_order),
         cart: isEnabled(body.cart),
         order: isEnabled(body.order),
-        sendStaychat:
-          isEnabled(body.order) && isEnabled(body.sendStaychat) ? "1" : "0",
         checkin: isEnabled(body.checkin) ? "1" : "0",
+        ...campaignData,
+        ...(Object.hasOwn(body, "sendStaychat") || Object.hasOwn(body, "order")
+          ? { sendStaychat: getStaychatEnabled(currentItem, body) ? "1" : "0" }
+          : {}),
       });
 
       const updated = await prisma.outletItems.update({
@@ -177,9 +241,11 @@ export async function PATCH(request, context) {
         takeaway_order: isEnabled(body.takeaway_order),
         cart: isEnabled(body.cart),
         order: isEnabled(body.order),
-        sendStaychat:
-          isEnabled(body.order) && isEnabled(body.sendStaychat) ? "1" : "0",
         checkin: isEnabled(body.checkin) ? "1" : "0",
+        ...campaignData,
+        ...(Object.hasOwn(body, "sendStaychat") || Object.hasOwn(body, "order")
+          ? { sendStaychat: getStaychatEnabled(currentItem, body) ? "1" : "0" }
+          : {}),
       },
     });
 

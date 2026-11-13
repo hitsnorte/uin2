@@ -921,6 +921,7 @@ export default function Editor({
         order: item.order,
         sendStaychat: item.sendStaychat,
         checkin: item.checkin,
+        campaigns: item.campaigns,
       }),
       }
     );
